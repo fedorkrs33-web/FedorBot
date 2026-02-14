@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="GigaCodeAgentSettings">
-    <option name="autoApproveEdits" value="true" />
     <option name="autoApprovedCommands">
       <list>
         <Execute>
           <option name="pattern" value="cd C:/Work/FedorBot; git rm -r --cached Telegram-Bot" />
+        </Execute>
+        <Execute>
+          <option name="pattern" value="ls C:/Work/FedorBot/.env*" />
+        </Execute>
+        <Execute>
+          <option name="pattern" value="npm pkg get scripts" />
         </Execute>
       </list>
     </option>

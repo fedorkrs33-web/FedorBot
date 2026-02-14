@@ -1,7 +1,10 @@
 node_modules/
 dist/
+# Environment Variables
 .env
 .env.local
+
+# Database
 *.db
 *.sqlite
 npm-debug.log*

@@ -1,11 +1,11 @@
 import asyncio
-import sys
-from sqlalchemy import select, func
-from src.database import init_db, get_db
-from src.models import Proverb
+import os
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.future import select
 
-# Добавляем путь к проекту
-sys.path.append('C:/Work/FedorBot')
+# Импортируем модели
+from src.models import Base, Proverb
+from src.config import DATABASE_URL
 
 # Список пословиц по категориям
 PROVERBS = [
@@ -80,22 +80,30 @@ PROVERBS = [
     "Хлеб всему голова"
 ]
 
-async def main():
-    await init_db()
-    async for session in get_db():
-        # Проверяем, есть ли уже пословицы в базе
-        result = await session.execute(select(func.count()).select_from(Proverb))
-        count = result.scalar()
-        
-        if count == 0:
-            # Добавляем пословицы
-            for text in PROVERBS:
-                proverb = Proverb(text=text, added_by='admin')
+async def populate():
+    # Создаём движок
+    engine = create_async_engine(DATABASE_URL, echo=False)
+    async with engine.begin() as conn:
+        # Создаём таблицы, если ещё не созданы
+        await conn.run_sync(Base.metadata.create_all)
+
+    # Открываем сессию
+    async with AsyncSession(engine) as session:
+        for text in PROVERBS:
+            # Проверяем, есть ли уже такая пословица
+            result = await session.execute(
+                select(Proverb).where(Proverb.text == text)
+            )
+            exists = result.scalar()
+            if not exists:
+                proverb = Proverb(text=text, added_by="system")
                 session.add(proverb)
-            await session.commit()
-            print(f'Добавлено {len(PROVERBS)} пословиц в базу данных')
-        else:
-            print(f'База данных уже содержит {count} пословиц, добавление пропущено')
+                print(f"Добавлено: {text}")
+            else:
+                print(f"Уже есть: {text}")
+
+        await session.commit()
+        print("✅ Все пословицы загружены.")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(populate())

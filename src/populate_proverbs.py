@@ -77,5 +77,25 @@ PROVERBS = [
     "Жизнь прожить — не поле перейти.",
     "Утро вечера мудренее.",
     "Время — деньги.",
-    "Хлеб всему голова!"
+    "Хлеб всему голова"
 ]
+
+async def main():
+    await init_db()
+    async for session in get_db():
+        # Проверяем, есть ли уже пословицы в базе
+        result = await session.execute(select(func.count()).select_from(Proverb))
+        count = result.scalar()
+        
+        if count == 0:
+            # Добавляем пословицы
+            for text in PROVERBS:
+                proverb = Proverb(text=text, added_by='admin')
+                session.add(proverb)
+            await session.commit()
+            print(f'Добавлено {len(PROVERBS)} пословиц в базу данных')
+        else:
+            print(f'База данных уже содержит {count} пословиц, добавление пропущено')
+
+if __name__ == "__main__":
+    asyncio.run(main())

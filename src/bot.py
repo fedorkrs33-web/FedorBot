@@ -9,6 +9,7 @@ from src.schemas import MessageCreate, UserCreate, UserUpdate, ProverbResponse
 from datetime import datetime
 import asyncio
 from sqlalchemy.exc import SQLAlchemyError
+from typing import Optional
 
 # Создаем экземпляры бота и диспетчера
 bot = Bot(token=BOT_TOKEN)
@@ -41,38 +42,203 @@ async def create_or_update_user(user: types.User) -> User:
                     is_admin=is_admin(user.id)
                 )
                 session.add(db_user)
+                await session.commit()
+                await session.refresh(db_user)
+                return db_user
             else:
-                db_user.username = user.username
-                db_user.first_name = user.first_name
+                # Обновляем данные пользователя только если они изменились
+                updated = False
+                if db_user.username != user.username:
+                    db_user.username = user.username
+                    updated = True
+                if db_user.first_name != user.first_name:
+                    db_user.first_name = user.first_name
+                    updated = True
+                if db_user.is_admin != is_admin(user.id):
+                    db_user.is_admin = is_admin(user.id)
+                    updated = True
                 
-            await session.commit()
-            await session.refresh(db_user)
-            return db_user
+                if updated:
+                    await session.commit()
+                    await session.refresh(db_user)
+                
+                return db_user
         except Exception as e:
             print(f"Ошибка при создании/обновлении пользователя: {e}")
             await session.rollback()
+            # Возвращаем None только в случае критической ошибки
+            if "UNIQUE constraint failed" in str(e):
+                # Пользователь уже существует, получаем его из базы
+                try:
+                    db_user = await session.get(User, str(user.id))
+                    return db_user
+                except:
+                    return None
             return None
+
+async def get_proverbs_keyboard(page: int = 0, limit: int = 5) -> InlineKeyboardMarkup:
+    """
+    Создает инлайн-клавиатуру с пословицами из базы данных
+    """
+    keyboard = []
+    
+    async for session in get_db():
+        try:
+            # Получаем пословицы с пагинацией
+            result = await session.execute(
+                select(Proverb)
+                .where(Proverb.is_active == True)
+                .order_by(Proverb.added_at.desc())
+                .offset(page * limit)
+                .limit(limit + 1)  # +1 для проверки наличия следующей страницы
+            )
+            proverbs = result.scalars().all()
+            
+            has_next_page = len(proverbs) > limit
+            if has_next_page:
+                proverbs = proverbs[:-1]
+            
+            # Добавляем кнопки для каждой пословицы
+            for proverb in proverbs:
+                keyboard.append([
+                    InlineKeyboardButton(
+                        text=f"\"{proverb.text[:30]}...\"", 
+                        callback_data=f"proverb_{proverb.id}"
+                    )
+                ])
+                
+        except Exception as e:
+            print(f"Ошибка при получении пословиц для клавиатуры: {e}")
+            return InlineKeyboardMarkup(inline_keyboard=[])
+    
+    # Добавляем навигацию по страницам
+    navigation_buttons = []
+    if page > 0:
+        navigation_buttons.append(
+            InlineKeyboardButton(
+                text="◀️ Назад", 
+                callback_data=f"page_{page-1}"
+            )
+        )
+    if has_next_page:
+        navigation_buttons.append(
+            InlineKeyboardButton(
+                text="Вперед ▶️", 
+                callback_data=f"page_{page+1}"
+            )
+        )
+    
+    if navigation_buttons:
+        keyboard.append(navigation_buttons)
+    
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+async def send_proverbs_page(message: types.Message, page: int = 0):
+    """
+    Отправляет страницу пословиц пользователю
+    """
+    keyboard = await get_proverbs_keyboard(page)
+    
+    if not keyboard.inline_keyboard:
+        await message.answer("Пока нет ни одной пословицы. Добавьте первую!")
+        return
+    
+    text = "Выберите пословицу:" if page == 0 else f"Страница {page + 1} пословиц:" 
+    await message.answer(text, reply_markup=keyboard)
+
+
+@dp.callback_query()
+async def handle_callback_query(callback: types.CallbackQuery):
+    """
+    Обработка нажатий на кнопки в инлайн-клавиатуре
+    """
+    try:
+        data = callback.data
+        
+        if data.startswith("page_"):
+            page = int(data.split("_")[1])
+            await send_proverbs_page(callback.message, page)
+            
+        elif data.startswith("proverb_"):
+            proverb_id = int(data.split("_")[1])
+            
+            # Получаем выбранную пословицу
+            async for session in get_db():
+                try:
+                    proverb = await session.get(Proverb, proverb_id)
+                    if proverb and proverb.is_active:
+                        text = f"Выбрана пословица:\n\"{proverb.text}\"\n\nЧто вы хотите с ней сделать?"
+                        
+                        # Клавиатура действий с пословицей
+                        actions_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="Анализ ИИ", callback_data=f"analyze_{proverb_id}")],
+                            [InlineKeyboardButton(text="Поделиться", callback_data=f"share_{proverb_id}")]
+                        ])
+                        
+                        # Для администраторов добавляем опции редактирования и удаления
+                        if is_admin(callback.from_user.id):
+                            actions_keyboard.inline_keyboard.append(
+                                [InlineKeyboardButton(text="Редактировать", callback_data=f"edit_{proverb_id}")]
+                            )
+                            actions_keyboard.inline_keyboard.append(
+                                [InlineKeyboardButton(text="Удалить", callback_data=f"delete_{proverb_id}")]
+                            )
+                        
+                        await callback.message.edit_text(text, reply_markup=actions_keyboard)
+                    else:
+                        await callback.answer("Пословица не найдена или удалена")
+                
+                except Exception as e:
+                    print(f"Ошибка при обработке callback запроса для пословиц: {e}")
+                    await callback.answer("Произошла ошибка при обработке запроса")
+        
+        elif data.startswith("analyze_"):
+            proverb_id = int(data.split("_")[1])
+            await cmd_analyze_proverb(callback, proverb_id)
+        
+        elif data.startswith("edit_"):
+            proverb_id = int(data.split("_")[1])
+            await cmd_edit_proverb_id(callback, proverb_id)
+        
+        elif data.startswith("delete_"):
+            proverb_id = int(data.split("_")[1])
+            await cmd_delete_proverb(callback, proverb_id)
+        
+        elif data.startswith("share_"):
+            proverb_id = int(data.split("_")[1])
+            await cmd_share_proverb(callback, proverb_id)
+        
+        await callback.answer()
+        
+    except Exception as e:
+        print(f"Ошибка при обработке callback запроса: {e}")
+        await callback.answer("Произошла ошибка при обработке запроса")
+
 
 # Обработка команды /start
 @dp.message(Command(commands=['start']))
 async def cmd_start(message: types.Message):
     # Создаем или обновляем пользователя
     user = await create_or_update_user(message.from_user)
+    if user is None:
+        await message.answer("Ошибка при создании пользователя. Попробуйте позже.")
+        return
     
     # Создаем клавиатуру с кнопками
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
+    keyboard = []
     
     # Добавляем кнопки управления
     btn_analyze = KeyboardButton(text="Анализ ИИ")
     btn_add = KeyboardButton(text="Добавить")
-    keyboard.add(btn_analyze)
+    keyboard.append([btn_analyze])
     
     # Админ-кнопка доступна только администраторам
     if is_admin(message.from_user.id):
         btn_edit = KeyboardButton(text="Редактировать")
-        keyboard.add(btn_add, btn_edit)
+        keyboard.append([btn_add, btn_edit])
     else:
-        keyboard.add(btn_add)
+        keyboard.append([btn_add])
     
     # Получаем случайные пословицы из базы данных
     async for session in get_db():
@@ -92,7 +258,121 @@ async def cmd_start(message: types.Message):
             print(f"Ошибка при получении пословиц: {e}")
             welcome_text = f"Добро пожаловать, {user.first_name}!\n\nОшибка загрузки пословиц."
     
-    await message.answer(welcome_text, reply_markup=keyboard)
+    if user is None:
+        await message.answer("Ошибка при создании пользователя. Попробуйте позже.")
+        return
+    
+    # Создаем ReplyKeyboardMarkup с клавиатурой
+    reply_markup = ReplyKeyboardMarkup(
+        keyboard=keyboard,
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
+    await message.answer(welcome_text, reply_markup=reply_markup)
+
+# Обработка команды /help
+@dp.message(Command(commands=['help']))
+async def cmd_help(message: types.Message):
+    help_text = """
+🤖 *Доступные команды:*
+
+/start - Начать работу с ботом
+/help - Показать эту справку
+/stats - Показать статистику
+
+💡 *Функции бота:*
+
+• Просмотр и анализ пословиц
+• Добавление новых пословиц
+• Интерпретация пословиц с помощью ИИ
+• Сравнение различных интерпретаций
+
+🛠 *Администрирование (для администраторов):*
+
+• /block <user_id> - Блокировка пользователя
+• /unblock <user_id> - Разблокировка пользователя
+• /clear - Очистка истории сообщений
+• Редактирование и удаление пословиц
+    """
+    
+    await message.answer(help_text, parse_mode="Markdown")
+
+
+# Обработка команды /stats (только для админов)
+@dp.message(Command(commands=['stats']))
+async def cmd_stats(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("У вас нет прав для просмотра статистики")
+        return
+    
+    async for session in get_db():
+        try:
+            # Подсчет сообщений
+            messages_count = await session.execute(
+                select(func.count(Message.id))
+            )
+            messages_count = messages_count.scalar()
+            
+            # Подсчет пользователей
+            users_count = await session.execute(
+                select(func.count(User.id))
+            )
+            users_count = users_count.scalar()
+            
+            # Подсчет пословиц
+            proverbs_count = await session.execute(
+                select(func.count(Proverb.id))
+            )
+            proverbs_count = proverbs_count.scalar()
+            
+            # Активные пословиц
+            active_proverbs_count = await session.execute(
+                select(func.count(Proverb.id)).where(Proverb.is_active == True)
+            )
+            active_proverbs_count = active_proverbs_count.scalar()
+            
+            # Формируем сообщение со статистикой
+            stats_text = f"""
+📊 *Статистика бота:*
+
+👥 Пользователи: {users_count}
+💬 Сообщения: {messages_count}
+📚 Всего пословиц: {proverbs_count}
+✅ Активных пословиц: {active_proverbs_count}
+❌ Удаленных пословиц: {proverbs_count - active_proverbs_count}
+
+⏱ *Время работы:*
+Бот запущен и готов к работе!
+            """
+            
+            await message.answer(stats_text, parse_mode="Markdown")
+            
+        except Exception as e:
+            print(f"Ошибка при получении статистики: {e}")
+            await message.answer("Ошибка при получении статистики")
+
+
+# Обработка команды /clear (только для админов)
+@dp.message(Command(commands=['clear']))
+async def cmd_clear(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("У вас нет прав для выполнения этой команды")
+        return
+    
+    async for session in get_db():
+        try:
+            # Удаляем все сообщения
+            result = await session.execute(delete(Message))
+            await session.commit()
+            
+            deleted_count = result.rowcount
+            await message.answer(f"✅ Очищено {deleted_count} сообщений")
+            
+        except Exception as e:
+            print(f"Ошибка при очистке сообщений: {e}")
+            await session.rollback()
+            await message.answer("❌ Ошибка при очистке сообщений")
+
 
 # Обработка блокировки пользователя (только для админов)
 @dp.message(Command(commands=['block']))
@@ -208,6 +488,129 @@ async def cmd_unblock(message: types.Message):
             await session.rollback()
             await message.answer("Ошибка при разблокировке пользователя")
 
+# Обработка команды /analyze
+async def cmd_analyze_proverbs(message: types.Message):
+    """
+    Обработка команды анализа пословиц
+    """
+    await send_proverbs_page(message)
+
+
+# Обработка команды /add
+async def cmd_add_proverb(message: types.Message):
+    """
+    Обработка команды добавления пословицы
+    """
+    await message.answer("Введите текст новой пословицы:")
+
+
+# Обработка команды /edit
+async def cmd_edit_proverb(message: types.Message):
+    """
+    Обработка команды редактирования пословицы
+    """
+    await send_proverbs_page(message)
+
+
+# Обработка команды анализа конкретной пословицы
+async def cmd_analyze_proverb(callback: types.CallbackQuery, proverb_id: int):
+    """
+    Обработка анализа выбранной пословицы
+    """
+    async for session in get_db():
+        try:
+            proverb = await session.get(Proverb, proverb_id)
+            if proverb and proverb.is_active:
+                # Здесь будет интеграция с ИИ-моделями
+                response_text = f"ИИ-анализ пословицы:\n\"{proverb.text}\"\n\nПока функция в разработке. В будущем здесь будут отображаться интерпретации от различных ИИ-моделей."
+                
+                # Кнопка для сравнения интерпретаций
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="Сравнить интерпретации", callback_data=f"compare_{proverb_id}")],
+                    [InlineKeyboardButton(text="Назад", callback_data="back_to_proverbs")]
+                ])
+                
+                await callback.message.edit_text(response_text, reply_markup=keyboard)
+            else:
+                await callback.answer("Пословица не найдена или удалена")
+        except Exception as e:
+            print(f"Ошибка при анализе пословицы: {e}")
+            await callback.answer("Произошла ошибка при анализе пословицы")
+
+
+# Обработка редактирования конкретной пословицы
+async def cmd_edit_proverb_id(callback: types.CallbackQuery, proverb_id: int):
+    """
+    Начало процесса редактирования пословицы
+    """
+    async for session in get_db():
+        try:
+            proverb = await session.get(Proverb, proverb_id)
+            if proverb and proverb.is_active:
+                text = f"Редактирование пословицы:\n\"{proverb.text}\"\n\nВведите новый текст пословицы или /cancel для отмены."
+                
+                # Сохраняем состояние редактирования
+                # В реальном приложении это нужно хранить в базе данных или state
+                
+                await callback.message.edit_text(text)
+                # Здесь нужно установить состояние ожидания нового текста
+                # Это требует использования FSM (Finite State Machine)
+            else:
+                await callback.answer("Пословица не найдена или удалена")
+        except Exception as e:
+            print(f"Ошибка при начале редактирования пословицы: {e}")
+            await callback.answer("Произошла ошибка при редактировании пословицы")
+
+
+# Обработка удаления пословицы
+async def cmd_delete_proverb(callback: types.CallbackQuery, proverb_id: int):
+    """
+    Обработка удаления пословицы
+    """
+    async for session in get_db():
+        try:
+            proverb = await session.get(Proverb, proverb_id)
+            if proverb and proverb.is_active:
+                # Помечаем пословицу как неактивную вместо физического удаления
+                proverb.is_active = False
+                await session.commit()
+                
+                await callback.answer("Пословица успешно удалена")
+                # Возвращаемся к списку пословиц
+                await send_proverbs_page(callback.message)
+            else:
+                await callback.answer("Пословица уже удалена")
+        except Exception as e:
+            print(f"Ошибка при удалении пословицы: {e}")
+            await session.rollback()
+            await callback.answer("Произошла ошибка при удалении пословицы")
+
+
+# Обработка команды /share
+async def cmd_share_proverb(callback: types.CallbackQuery, proverb_id: int):
+    """
+    Обработка команды делиться пословицей
+    """
+    async for session in get_db():
+        try:
+            proverb = await session.get(Proverb, proverb_id)
+            if proverb and proverb.is_active:
+                text = f"\"{proverb.text}\"\n\n#пословица #мудрость #FedorBot"
+                
+                # Кнопки для отправки в другие чаты
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="Отправить другу", url=f"tg://msg_url?url={text}")],
+                    [InlineKeyboardButton(text="Назад", callback_data="back_to_proverbs")]
+                ])
+                
+                await callback.message.edit_text(f"Поделиться пословицей:\n{text}", reply_markup=keyboard)
+            else:
+                await callback.answer("Пословица не найдена или удалена")
+        except Exception as e:
+            print(f"Ошибка при делении пословицей: {e}")
+            await callback.answer("Произошла ошибка при делении пословицей")
+
+
 # Обработка текстовых сообщений
 @dp.message()
 async def handle_message(message: types.Message):
@@ -249,12 +652,12 @@ async def handle_message(message: types.Message):
 
     # Обработка кнопок
     if message.text == "Анализ ИИ":
-        await message.answer("Выберите пословицу для анализа с помощью ИИ")
+        await cmd_analyze_proverbs(message)
     elif message.text == "Добавить":
-        await message.answer("Введите новую пословицу:")
+        await cmd_add_proverb(message)
     elif message.text == "Редактировать":
         if is_admin(message.from_user.id):
-            await message.answer("Выберите пословицу для редактирования:")
+            await cmd_edit_proverb(message)
         else:
             await message.answer("У вас нет прав для редактирования пословиц")
     else:

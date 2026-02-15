@@ -5,9 +5,11 @@ from src.config import ADMIN_IDS
 from src.states import ProverbStates
 from src.keyboards import get_proverbs_keyboard
 from src.database import get_session
-from src.models import Proverb
+from src.models import Proverb, Model, AIResponse
 from sqlalchemy import select, delete
+from src.network import Network
 import logging
+import asyncio
 
 router = Router()
 
@@ -97,3 +99,91 @@ async def callback_delete(callback: types.CallbackQuery):
         await session.commit()
         await callback.answer("🗑️ Удалено.")
         await callback.message.edit_text("Пословица удалена.")
+
+
+@router.callback_query(F.data.startswith("analyze_"))
+async def process_analyze_proverb(callback: types.CallbackQuery):
+    await callback.answer()
+    proverb_id = int(callback.data.split("_")[-1])
+
+    # Получаем сессию
+    async for session in get_session():
+        # Находим пословицу
+        result = await session.execute(select(Proverb).where(Proverb.id == proverb_id))
+        proverb = result.scalar_one_or_none()
+        if not proverb:
+            await callback.message.answer("Пословица не найдена.")
+            return
+
+        # Получаем активные модели ИИ
+        result = await session.execute(select(Model).where(Model.is_active == True))
+        models = result.scalars().all()
+
+        if not models:
+            await callback.message.answer("Нет доступных моделей ИИ для анализа.")
+            return
+
+        # Показываем прогресс
+        progress_msg = await callback.message.answer(f"Запрос отправлен в {len(models)} моделей ИИ...")
+
+        responses = []
+        for model in models:
+            try:
+                # Читаем промпт из файла
+                try:
+                    with open("C:/Work/FedorBot/prompt.txt", "r", encoding="utf-8") as f:
+                        prompt_template = f.read().strip()
+                    # Заменяем плейсхолдер на текст пословицы
+                    prompt = prompt_template.replace("proverbs.text", proverb.text)
+                except Exception as e:
+                    # Резервный промпт в случае ошибки чтения файла
+                    prompt = f"Дай глубокую культурную и лингвистическую интерпретацию следующей русской пословицы: {proverb.text}\nОбъясни её смысл, происхождение и употребление."
+
+                # Отправляем запрос
+                raw_response = await Network.send_prompt_to_model(
+                    model_data={
+                        'name': model.name,
+                        'api_url': model.api_url,
+                        'api_key_var': model.api_key_var,
+                        'provider': model.provider,
+                        'model_name': model.model_name
+                    },
+                    prompt=prompt
+                )
+
+                # Сохраняем ответ в БД
+                ai_response = AIResponse(
+                    proverb_id=proverb.id,
+                    model_id=model.id,
+                    prompt=prompt,
+                    response=raw_response,
+                    usage_tokens=len(raw_response.split()),
+                    response_time_ms=1000  # заглушка
+                )
+                session.add(ai_response)
+                await session.commit()
+
+                # Создаём заголовок с именем модели
+                header = f"<b>{model.name}</b> ({model.provider}):\n\n"
+                # Объединяем заголовок с ответом
+                full_response = header + raw_response
+                responses.append(full_response)
+
+            except Exception as e:
+                responses.append(f"❌ Ошибка в {model.name}: {str(e)}")
+                continue
+
+        # Отправляем ответы по одному, разбивая длинные сообщения
+        if responses:
+            for response in responses:
+                # Разбиваем длинные ответы на части
+                while len(response) > 4000:
+                    part = response[:4000]
+                    await progress_msg.reply(part, parse_mode="HTML")
+                    response = response[4000:]
+                await progress_msg.reply(response, parse_mode="HTML")
+        else:
+            await progress_msg.reply("❌ Не удалось получить ответы от моделей ИИ.")
+        
+        break  # Выходим из цикла после использования сессии
+

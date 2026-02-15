@@ -1,8 +1,54 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
 Base = declarative_base()
+
+# --- Служебные таблицы для ИИ-моделей ---
+
+class AIModelConfig(Base):
+    __tablename__ = 'ai_model_config'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    provider = Column(String(50), nullable=False)  # polza, gigachat, openai и т.д.
+    model_name = Column(String(100), nullable=False)  # имя модели в API
+    api_key_var = Column(String(100), nullable=False)  # название переменной окружения
+    api_url = Column(String(255), nullable=True)  # URL API, может быть пустым для автозаполнения
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Связь с ответами
+    responses = relationship("AIResponse", back_populates="model", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<AIModelConfig(name='{self.name}', provider='{self.provider}')>"
+
+
+class AIResponse(Base):
+    __tablename__ = 'ai_responses'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    proverb_id = Column(Integer, ForeignKey('proverbs.id'), nullable=False)
+    model_id = Column(Integer, ForeignKey('ai_model_config.id'), nullable=False)
+    prompt = Column(Text, nullable=False)
+    response = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime, default=datetime.utcnow)
+    is_cached = Column(Boolean, default=False)
+    usage_tokens = Column(Integer, default=0)
+    response_time_ms = Column(Integer, default=0)
+    
+    # Связи
+    proverb = relationship("Proverb", back_populates="ai_interpretations")
+    model = relationship("AIModelConfig", back_populates="responses")
+
+    def __repr__(self):
+        return f"<AIResponse(model='{self.model.name}', proverb_id={self.proverb_id})>"
+
+# --- Основные таблицы ---
 
 class Message(Base):
     __tablename__ = 'messages'
@@ -24,6 +70,12 @@ class Proverb(Base):
     added_by = Column(String)
     added_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
+    
+    # Связь с интерпретациями ИИ
+    ai_interpretations = relationship("AIResponse", back_populates="proverb", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Proverb(id={self.id}, text='{self.text[:30]}...')>"
 
 class User(Base):
     __tablename__ = 'users'

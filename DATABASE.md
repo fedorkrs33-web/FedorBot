@@ -20,9 +20,9 @@
 |------|-----|----------|
 | id | INTEGER | Первичный ключ |
 | name | STRING(100) | Человекочитаемое имя модели |
-| provider | STRING(50) | Провайдер (polza, gigachat, yandex, openai и т.д.) |
+| provider | STRING(50) | Провайдер (polzaai, gigachat, yandex, openai и т.д.) |
 | model_name | STRING(100) | Имя модели в API |
-| api_key_var | STRING(100) | Название переменной окружения с API-ключом |
+| api_key_var | STRING(100) | Название переменной окружения с API-ключом (POLZAAI_API_KEY, GIGACHAT_CLIENT_ID, YANDEX_IAM_TOKEN и т.д.) |
 | api_url | STRING(255) | URL API |
 | is_active | BOOLEAN | Активна ли модель |
 | created_at | DATETIME | Дата создания |

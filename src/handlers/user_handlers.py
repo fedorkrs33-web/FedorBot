@@ -65,7 +65,7 @@ async def cmd_start(message: types.Message):
             proverb_kb = await get_proverbs_keyboard(0)
             await message.answer("Выберите пословицу:", reply_markup=proverb_kb, disable_notification=True)
             
-            # Отправляем кнопки управления
+            # Отправляем основное меню (только для администраторов)
             await message.answer("Выберите действие:", reply_markup=get_main_menu(user.is_admin), disable_notification=True)
 
         except Exception as e:
@@ -87,16 +87,11 @@ async def cmd_help(message: types.Message):
 """
     await message.answer(help_text, parse_mode="Markdown")
 
-# Обработка кнопки "Просмотреть выбранную пословицу"
-@router.message(F.text == "Просмотреть выбранную пословицу")
-async def cmd_view_selected(message: types.Message):
-    kb = await get_proverbs_keyboard(0)
-    await message.answer("Выберите пословицу для просмотра анализа:", reply_markup=kb)
+# Удалён обработчик просмотра выбранной пословицу, так как кнопка больше не выводится
 
 # Обработка выбора пословицы для анализа
 @router.callback_query(F.data.startswith("proverb_"))
 async def callback_proverb_analysis(callback: types.CallbackQuery):
-    await callback.answer()
     proverb_id = int(callback.data.split("_")[1])
     
     async for session in get_session():
@@ -115,22 +110,49 @@ async def callback_proverb_analysis(callback: types.CallbackQuery):
         responses = result.scalars().all()
         
         if not responses:
-            await callback.message.answer(f"Анализ для пословицы «{proverb.text}» ещё не доступен. Администраторы работают над этим.")
+            # Создаём клавиатуру с кнопкой "Анализировать сейчас"
+            keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="Анализировать сейчас", callback_data=f"analyze_{proverb_id}")],
+                [types.InlineKeyboardButton(text="Назад", callback_data="back_to_proverbs")]
+            ])
+            await callback.message.edit_text(f"Анализ для пословицы «{proverb.text}» ещё не доступен.\nХотите инициировать анализ?", reply_markup=keyboard)
+            await callback.answer()
             return
         
-        # Формируем ответ с анализами
-        text = f"<b>Анализ пословицы «{proverb.text}»:</b>\n\n"
+        # Формируем и отправляем каждый анализ
         for response in responses:
             # Явно загружаем модель, чтобы избежать lazy loading
             model = await session.get(Model, response.model_id)
-            text += f"<b>{model.name}</b> ({model.provider}):\n{response.response}\n\n"
+            
+            # Формируем заголовок
+            header = f"<b>{model.name}</b> ({model.provider}):\n\n"
+            full_text = header + response.response
+            
+            # Разбиваем длинные сообщения
+            while len(full_text) > 4000:
+                part = full_text[:4000]
+                await callback.message.answer(part, parse_mode="HTML")
+                full_text = full_text[4000:]
+            
+            # Отправляем остаток
+            if full_text:
+                await callback.message.answer(full_text, parse_mode="HTML")
         
-        await callback.message.answer(text, parse_mode="HTML")
+        # Обновляем оригинальное сообщение с кнопками
+        kb = await get_proverbs_keyboard(0)
+        if callback.message:
+            try:
+                await callback.message.edit_text("Выберите пословицу для просмотра анализа:", reply_markup=kb)
+            except Exception as e:
+                logging.error(f"Ошибка при обновлении сообщения: {e}")
+                # Если не удалось обновить, отправляем новое
+                await callback.message.answer("Выберите пословицу для просмотра анализа:", reply_markup=kb)
+        
+        # Отправляем подтверждение
+        await callback.answer()
 
 # Обработка новой кнопки "Оставить заявку на добавление"
-@router.message(F.text == "Оставить заявку на добавление")
-async def cmd_request_add(message: types.Message):
-    await message.answer("Пожалуйста, введите текст пословицы, которую хотите добавить:")
+# Удалён обработчик заявки на добавление, так как кнопка больше не выводится
 
 # Обработка кнопки "Меню управления" для админов
 @router.message(F.text == "Меню управления")
@@ -141,10 +163,4 @@ async def cmd_admin_menu(message: types.Message):
         await message.answer("У вас нет прав на использование этого меню.")
 
 # Обработка кнопки "Назад" для возврата в главное меню
-@router.message(F.text == "Назад")
-async def cmd_back_to_main(message: types.Message):
-    async for session in get_session():
-        result = await session.execute(select(User).where(User.user_id == str(message.from_user.id)))
-        user = result.scalar_one_or_none()
-        is_admin = user.is_admin if user else False
-    await message.answer("Главное меню:", reply_markup=get_main_menu(is_admin))
+# Удалён обработчик кнопки "Назад", так как она больше не нужна

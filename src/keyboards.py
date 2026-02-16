@@ -4,10 +4,7 @@ from sqlalchemy import select
 
 # Основное меню
 def get_main_menu(is_admin: bool) -> ReplyKeyboardMarkup:
-    buttons = [
-        [KeyboardButton(text="Просмотреть выбранную пословицу")],
-        [KeyboardButton(text="Оставить заявку на добавление")]
-    ]
+    buttons = []
     if is_admin:
         buttons.append([KeyboardButton(text="Меню управления")])
     

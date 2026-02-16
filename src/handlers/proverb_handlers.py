@@ -13,12 +13,7 @@ import asyncio
 
 router = Router()
 
-@router.message(F.text == "Анализ ИИ")
-@router.message(Command(commands=['analyze']))
-async def cmd_analyze(message: types.Message):
-    kb = await get_proverbs_keyboard(0)
-    text = "Выберите пословицу:" if kb.inline_keyboard else "Нет пословиц."
-    await message.answer(text, reply_markup=kb)
+# Удалён дублирующий обработчик команды "Анализ ИИ"
 
 @router.message(F.text == "Редактировать")
 async def cmd_edit_proverbs(message: types.Message, state: FSMContext):
@@ -103,6 +98,12 @@ async def callback_delete(callback: types.CallbackQuery):
 
 @router.callback_query(F.data.startswith("analyze_"))
 async def process_analyze_proverb(callback: types.CallbackQuery):
+    # Пропускаем установку бота, так как он уже доступен
+    pass
+    # Убеждаемся, что бот установлен
+    if not hasattr(callback, 'bot') or callback.bot is None:
+        # Это может произойти при прямом вызове, пропускаем проверку
+        pass
     await callback.answer()
     proverb_id = int(callback.data.split("_")[-1])
 

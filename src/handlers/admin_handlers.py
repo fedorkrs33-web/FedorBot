@@ -52,6 +52,17 @@ async def cmd_analyze_ii(message: types.Message):
     kb = await get_proverbs_keyboard(0)
     await message.answer("Выберите пословицу для анализа:", reply_markup=kb)
 
+# Обработка выбора пословицы для анализа
+@router.callback_query(F.data.startswith("analyze_"))
+async def process_analyze_proverb(callback: types.CallbackQuery):
+    await callback.answer()
+    proverb_id = int(callback.data.split("_")[1])
+
+    # Импортируем здесь, чтобы избежать циклических импортов
+    from src.handlers.proverb_handlers import process_analyze_proverb as analyze_handler
+    # Просто вызываем обработчик с оригинальным callback
+    await analyze_handler(callback)
+
 # Обработка кнопки "Модели"
 @router.message(F.text == "Модели")
 async def cmd_models_menu(message: types.Message):

@@ -7,7 +7,7 @@ INITIAL_MODELS = [
     {
         "name": "DeepSeek",
         "api_url": "https://api.polza.ai/v1/chat/completions",
-        "api_key_var": "POLZA_API_KEY",
+        "api_key_var": "POLZAAI_API_KEY",
         "is_active": 1,
         "provider": "Polza",
         "model_name": "deepseek-v3.2"
@@ -15,7 +15,7 @@ INITIAL_MODELS = [
     {
         "name": "Anthropic",
         "api_url": "https://api.polza.ai/v1/chat/completions",
-        "api_key_var": "POLZA_API_KEY",
+        "api_key_var": "POLZAAI_API_KEY",
         "is_active": 1,
         "provider": "Polza",
         "model_name": "claude-3-haiku"
@@ -39,7 +39,7 @@ INITIAL_MODELS = [
     {
         "name": "Grok",
         "api_url": "https://api.polza.ai/v1/chat/completions",
-        "api_key_var": "POLZA_API_KEY",
+        "api_key_var": "POLZAAI_API_KEY",
         "is_active": 1,
         "provider": "Polza",
         "model_name": "grok-3-beta"

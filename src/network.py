@@ -26,9 +26,8 @@ class Network:
         logger.info(f"📤 Отправляю промт в {model_data['name']} (provider: {model_data['provider']})...")
 
         try:
-            if model_data["provider"].lower() == "polzaai":
-                return await Network._send_to_polzaai(model_data, prompt)
-            elif model_data["provider"].lower() == "gigachat":
+            
+            if model_data["provider"].lower() == "gigachat":
                 return await Network._send_to_gigachat(prompt)
             elif model_data["provider"].lower() == "yandex":
                 return await Network._send_to_yandex(prompt)
@@ -124,44 +123,6 @@ class Network:
             logger.error(error_msg)
             return error_msg
 
-    @staticmethod
-    async def _send_to_polzaai(model: dict, prompt: str) -> str:
-        """Отправка запроса в PolzaAI"""
-        try:
-            api_key = await Config.get_api_key(model["api_key_var"])
-            if not api_key:
-                return f"🔑 Ключ не найден: {model['api_key_var']}"
-
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-
-            payload = {
-                "model": model["model_name"],
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7,
-                "max_tokens": 1024,
-            }
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    model["api_url"],
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30)
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                        if content:
-                            return content.strip()
-                        return "⚠️ Ответ от PolzaAI пуст"
-                    else:
-                        error = await response.text()
-                        return f"❌ PolzaAI: {response.status}: {error}"
-        except Exception as e:
-            return f"❌ PolzaAI: {str(e)}"
 
     @staticmethod
     async def _send_to_gigachat(prompt: str) -> str:
@@ -264,7 +225,7 @@ class Network:
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
+                    "https://d5dsop9op9ghv14u968d.hsvi2zuh.apigw.yandexcloud.net",
                     headers=headers,
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=30)

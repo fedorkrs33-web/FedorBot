@@ -202,12 +202,16 @@ class Network:
         
     @staticmethod
     async def _send_to_yandex(prompt: str) -> str:
-        """Отправка в Yandex GPT"""
+        """Отправка в Yandex GPT через aiohttp (асинхронно)"""
         try:
+            # Получаем переменные окружения
             iam_token = os.getenv("YANDEX_IAM_TOKEN")
             folder_id = os.getenv("YANDEX_FOLDER_ID")
+
             if not iam_token or not folder_id:
-                return "❌ Не заданы YANDEX_IAM_TOKEN или YANDEX_FOLDER_ID"
+                error_msg = "❌ Не заданы YANDEX_IAM_TOKEN или YANDEX_FOLDER_ID"
+                logger.error(error_msg)
+                return error_msg
 
             payload = {
                 "modelUri": f"gpt://{folder_id}/yandexgpt/latest",
@@ -223,25 +227,46 @@ class Network:
                 "Content-Type": "application/json"
             }
 
+            logger.debug(f"📤 POST Yandex GPT (folder: {folder_id})")
+            
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "https://d5dsop9op9ghv14u968d.hsvi2zuh.apigw.yandexcloud.net",
+                    "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
                     headers=headers,
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
+                    logger.debug(f"📨 Status: {response.status}")
+
                     if response.status == 200:
                         try:
-                            text = (await response.json())["result"]["alternatives"][0]["message"]["text"]
+                            data = await response.json()
+                            text = data["result"]["alternatives"][0]["message"]["text"]
+                            logger.info("✅ Ответ от Yandex GPT получен")
                             return text.strip()
-                        except (KeyError, IndexError) as e:
-                            return "⚠️ Ответ получен, но не удалось извлечь текст"
+                        except (KeyError, IndexError, TypeError) as e:
+                            error_msg = "⚠️ Ответ получен, но не удалось извлечь текст"
+                            logger.warning(error_msg)
+                            return error_msg
                     else:
                         try:
-                            error = (await response.json()).get("error", {}).get("message", await response.text())
-                        except:
-                            error = await response.text()
-                        return f"❌ {response.status}: {error}"
+                            error_data = await response.json()
+                            error_detail = error_data.get("error", {}).get("message", await response.text())
+                        except Exception:
+                            error_detail = await response.text()
+                        error_msg = f"❌ {response.status}: {error_detail}"
+                        logger.error(error_msg)
+                        return error_msg
 
+        except asyncio.TimeoutError:
+            error_msg = "❌ Ошибка: Таймаут запроса к Yandex GPT (30 сек)"
+            logger.error(error_msg)
+            return error_msg
+        except aiohttp.ClientError as e:
+            error_msg = f"❌ Ошибка подключения к Yandex GPT: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
         except Exception as e:
-            return f"❌ Yandex GPT: {str(e)}"
+            error_msg = f"❌ Неизвестная ошибка при запросе к Yandex GPT: {str(e)}"
+            logger.exception(error_msg)  # полный стек
+            return error_msg

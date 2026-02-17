@@ -30,7 +30,7 @@ class User(Base):
     blocked_by = Column(String, nullable=True)
     blocked_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-
+    prompts = relationship("Prompt", back_populates="author", cascade="all, delete-orphan")
 
 class Model(Base):
     __tablename__ = 'models'
@@ -45,8 +45,25 @@ class Model(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # 🔗 Связь с промтом
+    prompt_id = Column(Integer, ForeignKey('prompts.id'), nullable=True)  # может быть NULL
+    prompt = relationship("Prompt", back_populates="models")
+
     responses = relationship("AIResponse", back_populates="model", cascade="all, delete-orphan")
 
+class Prompt(Base):
+    __tablename__ = 'prompts'
+
+    id = Column(Integer, primary_key=True, index=True)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+    created_by = Column(String, ForeignKey('users.user_id'), nullable=True)
+
+    # Связь с пользователем
+    author = relationship("User", back_populates="prompts")
+    models = relationship("Model", back_populates="prompt")
 
 class Proverb(Base):
     __tablename__ = 'proverbs'

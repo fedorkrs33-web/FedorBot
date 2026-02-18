@@ -3,7 +3,8 @@ import sqlite3
 from flask import Flask, request, redirect, session, render_template_string
 from dotenv import load_dotenv
 from flask_restx import Api, Resource, fields
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
+from sqlalchemy import text as sql_text
 from datetime import datetime
 
 load_dotenv()
@@ -158,7 +159,7 @@ class ProverbList(Resource):
         """Получить все активные пословицы"""
         try:
             with engine.connect() as conn:
-                result = conn.execute(text("""
+                result = conn.execute(sql_text("""
                     SELECT id, text, is_active, added_at 
                     FROM proverbs 
                     WHERE is_active = 1 
@@ -179,7 +180,7 @@ class PromptList(Resource):
         """Получить все активные промты"""
         try:
             with engine.connect() as conn:
-                result = conn.execute(text("""
+                result = conn.execute(sql_text("""
                     SELECT id, text, is_active, created_by, created_at 
                     FROM prompts 
                     WHERE is_active = 1 
@@ -199,7 +200,7 @@ class ModelList(Resource):
         """Получить все модели"""
         try:
             with engine.connect() as conn:
-                result = conn.execute(text("""
+                result = conn.execute(sql_text("""
                     SELECT id, name, provider, is_active, api_url, model_name 
                     FROM models
                 """))
@@ -240,7 +241,7 @@ def admin_page():
             if search:
                 sql += " AND text LIKE :search"
             sql += " ORDER BY added_at DESC"
-            return conn.execute(text(sql), {"search": f"%{search}%"}).fetchall()
+            return conn.execute(sql_text(sql), {"search": f"%{search}%"}).fetchall()
 
     def get_prompts():
         with engine.connect() as conn:
@@ -248,7 +249,7 @@ def admin_page():
             if search:
                 sql += " AND text LIKE :search"
             sql += " ORDER BY created_at DESC"
-            return conn.execute(text(sql), {"search": f"%{search}%"}).fetchall()
+            return conn.execute(sql_text(sql), {"search": f"%{search}%"}).fetchall()
 
     def get_models():
         with engine.connect() as conn:
@@ -256,11 +257,11 @@ def admin_page():
             if search:
                 sql += " WHERE name LIKE :search OR provider LIKE :search OR model_name LIKE :search"
             sql += " ORDER BY name"
-            return conn.execute(text(sql), {"search": f"%{search}%"}).fetchall()
+            return conn.execute(sql_text(sql), {"search": f"%{search}%"}).fetchall()
 
     def get_proverbs_for_analysis():
         with engine.connect() as conn:
-            return conn.execute(text("""
+            return conn.execute(sql_text("""
                 SELECT id, text FROM proverbs WHERE is_active = 1 ORDER BY added_at DESC LIMIT 20
             """)).fetchall()
 
@@ -293,14 +294,6 @@ def admin_page():
         data = get_prompts()
         columns = ["ID", "Текст", "Дата добавления", "Действие"]
         rows = "".join(
-            f"<tr><td>{p.id}</td><td style='text-align: left;'>{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td><td>{p.created_at or '—'}</td></tr>"
-            for p in data
-        )
-
-    elif tab == "models":
-        data = get_models()
-        columns = ["ID", "Название", "Провайдер", "Активна", "Модель в API"]
-        rows = "".join(
             f"""
             <tr>
                 <td>{p.id}</td>
@@ -317,6 +310,24 @@ def admin_page():
             """
             for p in data
         )
+
+
+    elif tab == "models":
+        data = get_models()
+        columns = ["ID", "Название", "Провайдер", "Активна", "Модель в API"]
+        rows = "".join(
+            f"""
+            <tr>
+                <td>{m.id}</td>
+                <td>{m.name}</td>
+                <td>{m.provider}</td>
+                <td>{'✅' if m.is_active else '❌'}</td>
+                <td>{m.model_name or '—'}</td>
+            </tr>
+            """
+            for m in data
+        )
+
 
     elif tab == "control":
         columns = []
@@ -358,7 +369,7 @@ def admin_page():
         
         # --- Список моделей ---
         with engine.connect() as conn:
-            models = conn.execute(text("SELECT id, name, is_active FROM models ORDER BY name")).fetchall()
+            models = conn.execute(sql_text("SELECT id, name, is_active FROM models ORDER BY name")).fetchall()
             for m in models:
                 action = f"""
                 <a href="/toggle_model/{m.id}" style="padding: 5px 10px; background: {'#f44336' if m.is_active else '#8bc34a'};
@@ -482,7 +493,7 @@ def admin_page():
 def view_proverb(proverb_id):
     with engine.connect() as conn:
         proverb = conn.execute(
-            text("SELECT id, text, added_at FROM proverbs WHERE id = :id AND is_active = 1"),
+            sql_text("SELECT id, text, added_at FROM proverbs WHERE id = :id AND is_active = 1"),
             {"id": proverb_id}
         ).fetchone()
 
@@ -490,7 +501,7 @@ def view_proverb(proverb_id):
             return "<h1>❌ Пословица не найдена</h1><p><a href='/admin'>← Назад</a></p>", 404
 
         responses = conn.execute(
-            text("""
+            sql_text("""
                 SELECT ar.response, ar.prompt, m.name as model_name, ar.created_at
                 FROM ai_responses ar
                 JOIN models m ON ar.model_id = m.id
@@ -540,7 +551,7 @@ def toggle_model(model_id):
     try:
         with engine.connect() as conn:
             current = conn.execute(
-                text("SELECT is_active FROM models WHERE id = :id"),
+                sql_text("SELECT is_active FROM models WHERE id = :id"),
                 {"id": model_id}
             ).fetchone()
             if not current:
@@ -548,7 +559,7 @@ def toggle_model(model_id):
 
             new_status = 0 if current.is_active else 1
             conn.execute(
-                text("UPDATE models SET is_active = :status WHERE id = :id"),
+               sql_text( "UPDATE models SET is_active = :status WHERE id = :id"),
                 {"status": new_status, "id": model_id}
             )
             conn.commit()
@@ -562,20 +573,21 @@ def toggle_model(model_id):
 @app.route("/add_proverb", methods=["POST"])
 @login_required
 def add_proverb():
-    text = request.form.get("text", "").strip()
-    if not text:
+    proverb_text = request.form.get("text", "").strip()
+    if not proverb_text:
         return "<script>alert('❌ Текст пословицы не может быть пустым!'); window.history.back();</script>"
 
     try:
-        print(f"🔧 Добавляем пословицу: {text[:50]}...")  # ← лог в консоль
+        print(f"🔧 Добавляем пословицу: {proverb_text[:50]}...")  # ← лог в консоль
         with engine.connect() as conn:
-            result = conn.execute(
-                text("""
+            conn.execute(
+                sql_text("""
                     INSERT INTO proverbs (text, is_active, added_at)
                     VALUES (:text, 1, datetime('now'))
                 """),
-                {"text": text}
+                {"text": proverb_text}
             )
+
             conn.commit()  # ← ВАЖНО: для SQLAlchemy нужно явно коммитить!
             print("✅ Пословица добавлена в БД")
         return "<script>alert('✅ Пословица добавлена!'); window.location.href='/admin?tab=proverbs';</script>"
@@ -588,19 +600,19 @@ def add_proverb():
 @app.route("/add_prompt", methods=["POST"])
 @login_required
 def add_prompt():
-    text = request.form.get("text", "").strip()
-    if not text:
+    prompt_text = request.form.get("text", "").strip()
+    if not prompt_text:
         return "<script>alert('❌ Текст промта не может быть пустым!'); window.history.back();</script>"
 
     try:
-        print(f"🔧 Добавляем промт: {text[:50]}...")  # ← лог
+        print(f"🔧 Добавляем промт: {prompt_text[:50]}...")  # ← лог
         with engine.connect() as conn:
             conn.execute(
-                text("""
+                sql_text("""
                     INSERT INTO prompts (text, is_active, created_by, created_at)
                     VALUES (:text, 1, 'web_admin', datetime('now'))
                 """),
-                {"text": text}
+                {"text": prompt_text}
             )
             conn.commit()  # ← обязательно!
             print("✅ Промт добавлен в БД")
@@ -615,7 +627,7 @@ def delete_proverb(proverb_id):
     try:
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT text FROM proverbs WHERE id = :id"),
+                sql_text("SELECT text FROM proverbs WHERE id = :id"),
                 {"id": proverb_id}
             ).fetchone()
 
@@ -623,7 +635,7 @@ def delete_proverb(proverb_id):
                 return "<script>alert('❌ Пословица не найдена'); window.history.back();</script>"
 
             conn.execute(
-                text("DELETE FROM proverbs WHERE id = :id"),
+                sql_text("DELETE FROM proverbs WHERE id = :id"),
                 {"id": proverb_id}
             )
             conn.commit()
@@ -638,7 +650,7 @@ def delete_prompt(prompt_id):
     try:
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT text FROM prompts WHERE id = :id"),
+                sql_text("SELECT text FROM prompts WHERE id = :id"),
                 {"id": prompt_id}
             ).fetchone()
 
@@ -646,7 +658,7 @@ def delete_prompt(prompt_id):
                 return "<script>alert('❌ Промт не найден'); window.history.back();</script>"
 
             conn.execute(
-                text("DELETE FROM prompts WHERE id = :id"),
+              sql_text(  "DELETE FROM prompts WHERE id = :id"),
                 {"id": prompt_id}
             )
             conn.commit()

@@ -1,22 +1,30 @@
 import os
+import sqlite3
+from flask import Flask, request, redirect, session, render_template_string
+from dotenv import load_dotenv
 from flask_restx import Api, Resource, fields
-from sqlalchemy import create_engine, text, select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, text
 from datetime import datetime
-from flask import Flask, request
+
+load_dotenv()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+if not ADMIN_PASSWORD:
+    raise RuntimeError("❌ Не задан ADMIN_PASSWORD в .env")
 
 # --- Настройки ---
 DATABASE_PATH = "fedorbot.db"
 if not os.path.exists(DATABASE_PATH):
-    raise FileNotFoundError(f"База данных не найдена: {DATABASE_PATH}")
+    raise FileNotFoundError(f"❌ База данных не найдена: {DATABASE_PATH}")
 
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+engine = create_engine(DATABASE_URL, echo=False)
 
-# Создаём Flask-приложение
+# --- Flask & API ---
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "fallback_secret_key_for_dev")
 app.config["RESTX_MASK_SWAGGER"] = False
 
-# Создаём API с Swagger
 api = Api(
     app,
     title="FedorBot Admin API",
@@ -25,11 +33,7 @@ api = Api(
     doc="/swagger/"
 )
 
-# SQLAlchemy
-engine = create_engine(DATABASE_URL, echo=False)
-SessionLocal = sessionmaker(bind=engine)
-
-# --- Модели (для отображения в API) ---
+# --- Модели API ---
 proverb_model = api.model('Proverb', {
     'id': fields.Integer(description='ID пословицы'),
     'text': fields.String(description='Текст пословицы'),
@@ -60,28 +64,112 @@ ns_prompt = api.namespace('prompts', description='Промты')
 ns_model = api.namespace('models', description='Модели ИИ')
 
 
-# --- Роуты API ---
+# --- Авторизация ---
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        return """
+        <html>
+        <head><title>🔐 Вход</title></head>
+        <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+            <h2>Войдите в админ-панель</h2>
+            <form method="post" action="/login">
+                <input type="text" name="username" placeholder="Логин (из Telegram)" required
+                       style="padding: 10px; margin: 5px; width: 200px; font-size: 16px;"><br>
+                <input type="password" name="password" placeholder="Пароль" required
+                       style="padding: 10px; margin: 5px; width: 200px; font-size: 16px;"><br>
+                <button type="submit" style="padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 5px; margin-top: 10px;">
+                    Войти
+                </button>
+            </form>
+        </body>
+        </html>
+        """
+
+    # POST: обработка формы
+    username = request.form.get("username")
+    password = request.form.get("password")
+
+    if not username or not password:
+        return "<script>alert('Введите логин и пароль'); window.history.back();</script>"
+
+    # Проверяем пароль сразу
+    if password != ADMIN_PASSWORD:
+        return "<script>alert('❌ Неверный пароль'); window.history.back();</script>"
+
+    # Проверяем, есть ли пользователь в БД и он админ
+    try:
+        with sqlite3.connect(DATABASE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT user_id, username, first_name 
+                FROM users 
+                WHERE first_name = ? AND is_admin = 1
+            """, (username,))
+            user = cursor.fetchone()
+
+        if not user:
+            return """
+            <script>
+                alert('❌ Пользователь не найден или не является администратором.\\nПроверьте логин и права.');
+                window.location.href='/login';
+            </script>
+            """
+
+        # Успешный вход
+        session['logged_in'] = True
+        session['user_id'] = user[0]
+        session['username'] = user[1]
+        session['first_name'] = user[2] or user[1]
+
+        return redirect("/admin")
+
+    except Exception as e:
+        print(f"🔴 Ошибка при входе: {e}")  # ← будет в консоли
+        return f"""
+        <script>
+            alert('Ошибка сервера: {str(e)}');
+            window.location.href='/login';
+        </script>
+        """
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+def login_required(f):
+    def wrapper(*args, **kwargs):
+        if 'logged_in' not in session:
+            return redirect("/login")
+        return f(*args, **kwargs)
+    wrapper.__name__ = f.__name__
+    return wrapper
+
+
+# --- API Роуты ---
+
 @ns_proverb.route('/')
 class ProverbList(Resource):
     @ns_proverb.marshal_list_with(proverb_model)
     def get(self):
         """Получить все активные пословицы"""
-        session = SessionLocal()
         try:
-            result = session.execute(text("SELECT id, text, is_active, added_at FROM proverbs WHERE is_active = 1 ORDER BY added_at DESC"))
-            rows = result.fetchall()
-            return [
-                {
-                    "id": row.id,
-                    "text": row.text,
-                    "is_active": bool(row.is_active),
-                    "added_at": row.added_at
-                } for row in rows
-            ]
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, text, is_active, added_at 
+                    FROM proverbs 
+                    WHERE is_active = 1 
+                    ORDER BY added_at DESC
+                """))
+                return [
+                    {"id": r.id, "text": r.text, "is_active": bool(r.is_active), "added_at": r.added_at}
+                    for r in result.fetchall()
+                ]
         except Exception as e:
             return {"error": str(e)}, 500
-        finally:
-            session.close()
 
 
 @ns_prompt.route('/')
@@ -89,166 +177,287 @@ class PromptList(Resource):
     @ns_prompt.marshal_list_with(prompt_model)
     def get(self):
         """Получить все активные промты"""
-        session = SessionLocal()
         try:
-            result = session.execute(text("SELECT id, text, is_active, created_by, created_at FROM prompts WHERE is_active = 1 ORDER BY created_at DESC"))
-            rows = result.fetchall()
-            return [
-                {
-                    "id": row.id,
-                    "text": row.text,
-                    "is_active": bool(row.is_active),
-                    "created_by": row.created_by,
-                    "created_at": row.created_at
-                } for row in rows
-            ]
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, text, is_active, created_by, created_at 
+                    FROM prompts 
+                    WHERE is_active = 1 
+                    ORDER BY created_at DESC
+                """))
+                return [
+                    {"id": r.id, "text": r.text, "is_active": bool(r.is_active), "created_by": r.created_by, "created_at": r.created_at}
+                    for r in result.fetchall()
+                ]
         except Exception as e:
             return {"error": str(e)}, 500
-        finally:
-            session.close()
-
 
 @ns_model.route('/')
 class ModelList(Resource):
     @ns_model.marshal_list_with(model_model)
     def get(self):
         """Получить все модели"""
-        session = SessionLocal()
         try:
-            result = session.execute(text("SELECT id, name, provider, is_active, api_url, model_name FROM models"))
-            rows = result.fetchall()
-            return [
-                {
-                    "id": row.id,
-                    "name": row.name,
-                    "provider": row.provider,
-                    "is_active": bool(row.is_active),
-                    "api_url": row.api_url,
-                    "model_name": row.model_name
-                } for row in rows
-            ]
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, name, provider, is_active, api_url, model_name 
+                    FROM models
+                """))
+                return [
+                    {"id": r.id, "name": r.name, "provider": r.provider, "is_active": bool(r.is_active), "api_url": r.api_url, "model_name": r.model_name}
+                    for r in result.fetchall()
+                ]
         except Exception as e:
             return {"error": str(e)}, 500
-        finally:
-            session.close()
 
 
 # --- Веб-интерфейс ---
 @app.route("/")
+@login_required
 def index():
-    """Главная страница"""
     return """
     <html>
-    <head><title>FedorBot Admin</title></head>
-    <body style="font-family: sans-serif; padding: 20px; text-align: center; background: #f7f7f7;">
+    <body style="font-family: sans-serif; text-align: center; padding: 50px;">
         <h1>🔐 FedorBot Web Admin</h1>
         <p>Интерфейс управления Telegram-ботом</p>
-        <div style="margin: 30px 0;">
-            <a href="/swagger" style="margin: 0 15px; font-size: 18px; text-decoration: none; color: #0066cc;">📝 API (Swagger)</a>
-            <a href="/admin" style="margin: 0 15px; font-size: 18px; text-decoration: none; color: #0066cc;">📊 Админ-панель</a>
-        </div>
-        <hr>
-        <small>База данных: <strong>fedorbot.db</strong></small>
+        <a href="/admin" style="font-size: 18px; margin: 10px; padding: 15px; background: #0066cc; color: white; text-decoration: none; border-radius: 8px;">📊 Перейти в админку</a><br>
+        <a href="/swagger" style="color: #555;">📄 API (Swagger)</a>
     </body>
     </html>
-    """, 200
+    """
 
 
 @app.route("/admin")
+@login_required
 def admin_page():
-    # Получаем параметр вкладки
     tab = request.args.get("tab", "proverbs")
     search = request.args.get("q", "").strip()
 
-    # --- Чтение пословиц ---
+    # --- Функции чтения ---
     def get_proverbs():
         with engine.connect() as conn:
             sql = "SELECT id, text, added_at FROM proverbs WHERE is_active = 1"
             if search:
                 sql += " AND text LIKE :search"
             sql += " ORDER BY added_at DESC"
-            result = conn.execute(text(sql), {"search": f"%{search}%"})
-            return result.fetchall()
+            return conn.execute(text(sql), {"search": f"%{search}%"}).fetchall()
 
-    # --- Чтение промтов ---
     def get_prompts():
         with engine.connect() as conn:
             sql = "SELECT id, text, created_at FROM prompts WHERE is_active = 1"
             if search:
                 sql += " AND text LIKE :search"
             sql += " ORDER BY created_at DESC"
-            result = conn.execute(text(sql), {"search": f"%{search}%"})
-            return result.fetchall()
+            return conn.execute(text(sql), {"search": f"%{search}%"}).fetchall()
 
-    # --- Чтение моделей ---
     def get_models():
         with engine.connect() as conn:
             sql = "SELECT id, name, provider, is_active, model_name FROM models"
             if search:
                 sql += " WHERE name LIKE :search OR provider LIKE :search OR model_name LIKE :search"
             sql += " ORDER BY name"
-            result = conn.execute(text(sql), {"search": f"%{search}%"})
-            return result.fetchall()
+            return conn.execute(text(sql), {"search": f"%{search}%"}).fetchall()
 
-    # --- Выбираем данные по вкладке ---
-    if tab == "prompts":
-        data = get_prompts()
-        columns = ["ID", "Текст", "Дата создания"]
+    def get_proverbs_for_analysis():
+        with engine.connect() as conn:
+            return conn.execute(text("""
+                SELECT id, text FROM proverbs WHERE is_active = 1 ORDER BY added_at DESC LIMIT 20
+            """)).fetchall()
+
+    # --- Генерация контента ---
+    columns = []
+    rows = ""
+
+    if tab == "proverbs":
+        data = get_proverbs()
+        columns = ["ID", "Текст", "Дата добавления", "Действие"]
         rows = "".join(
-            f"<tr><td>{p.id}</td><td style='text-align: left'>{(p.text[:120] + '...') if len(p.text) > 120 else p.text}</td><td>{p.created_at or '—'}</td></tr>"
+            f"""
+            <tr>
+                <td><a href='/proverb/{p.id}' style='color: #0066cc;'>{p.id}</a></td>
+                <td style='text-align: left;'>{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td>
+                <td>{p.added_at or '—'}</td>
+                <td>
+                    <form method="post" action="/delete_proverb/{p.id}" style="display:inline;" onsubmit="return confirm('Удалить эту пословицу?');">
+                        <button type="submit" style="padding:5px 10px; background:#f44336; color:white; border:none; border-radius:3px; cursor:pointer;">
+                            Удалить
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            """
             for p in data
         )
+
+    elif tab == "prompts":
+        data = get_prompts()
+        columns = ["ID", "Текст", "Дата добавления", "Действие"]
+        rows = "".join(
+            f"<tr><td>{p.id}</td><td style='text-align: left;'>{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td><td>{p.created_at or '—'}</td></tr>"
+            for p in data
+        )
+
     elif tab == "models":
         data = get_models()
         columns = ["ID", "Название", "Провайдер", "Активна", "Модель в API"]
         rows = "".join(
-            f"<tr><td>{m.id}</td><td>{m.name}</td><td>{m.provider}</td><td>{'✅' if m.is_active else '❌'}</td><td>{m.model_name or '—'}</td></tr>"
-            for m in data
+            f"""
+            <tr>
+                <td>{p.id}</td>
+                <td style='text-align: left;'>{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td>
+                <td>{p.created_at or '—'}</td>
+                <td>
+                    <form method="post" action="/delete_prompt/{p.id}" style="display:inline;" onsubmit="return confirm('Удалить этот промт?');">
+                        <button type="submit" style="padding:5px 10px; background:#f44336; color:white; border:none; border-radius:3px; cursor:pointer;">
+                            Удалить
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            """
+            for p in data
         )
-    else:  # proverbs
+
+    elif tab == "control":
+        columns = []
+        rows = """
+        <div style="text-align: center; margin: 30px 0;">
+            <h2>🛠 Управление ботом</h2>
+            <p>Полный контроль, как в Telegram</p>
+        </div>
+
+        <!-- Добавить пословицу -->
+        <h3>➕ Добавить новую пословицу</h3>
+        <form method="post" action="/add_proverb" style="margin: 20px 0; padding: 15px; background: #f0f8ff; border-radius: 8px; max-width: 600px; margin: 20px auto;">
+            <textarea name="text" placeholder="Введите пословицу..." 
+                    style="width: 100%; height: 60px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px;"
+                    required></textarea><br>
+            <button type="submit" style="margin-top: 10px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 16px;">
+                📥 Добавить
+            </button>
+        </form>
+
+        <!-- Добавить промт -->
+        <h3>💬 Добавить новый промт</h3>
+        <form method="post" action="/add_prompt" style="margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 8px; max-width: 700px; margin: 20px auto;">
+            <textarea name="text" placeholder="Введите текст промта..." 
+                    style="width: 100%; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px;"
+                    required></textarea><br>
+            <small style="color: #666;">💡 Пример: "Объясни пословицу как для ребёнка 8 лет"</small><br>
+            <button type="submit" style="margin-top: 10px; padding: 10px 20px; background: #9c27b0; color: white; border: none; border-radius: 5px; font-size: 16px;">
+                ✨ Добавить промт
+            </button>
+        </form>
+
+        <!-- Управление моделями -->
+        <h3>🤖 Модели ИИ</h3>
+        <p>Вкл/Выкл активных моделей</p>
+        <table border="0" cellspacing="5" style="margin: 15px auto; background: white; width: 80%; max-width: 600px;">
+            <tr style="background: #eee;"><th>ID</th><th>Название</th><th>Статус</th><th>Действие</th></tr>
+        """
+        
+        # --- Список моделей ---
+        with engine.connect() as conn:
+            models = conn.execute(text("SELECT id, name, is_active FROM models ORDER BY name")).fetchall()
+            for m in models:
+                action = f"""
+                <a href="/toggle_model/{m.id}" style="padding: 5px 10px; background: {'#f44336' if m.is_active else '#8bc34a'};
+                    color: white; text-decoration: none; border-radius: 3px;">
+                    {'Выключить' if m.is_active else 'Включить'}
+                </a>
+                """
+                rows += f"<tr><td>{m.id}</td><td>{m.name}</td><td>{'✅ Активна' if m.is_active else '❌ Выключена'}</td><td>{action}</td></tr>"
+        rows += "</table>"
+
+        # --- Ссылки на списки ---
+        rows += """
+        <h3>📚 Быстрый доступ к спискам</h3>
+        <p>
+            <a href="/admin?tab=proverbs" class="btn">📜 Все пословицы</a>
+            <a href="/admin?tab=prompts" class="btn">💬 Все промты</a>
+            <a href="/admin?tab=models" class="btn">🤖 Модели</a>
+        </p>
+        """
+
+    elif tab == "analyze":
+        proverbs = get_proverbs_for_analysis()
+        rows = "<h3>🔍 Выберите пословицу для анализа ИИ</h3>"
+        for p in proverbs:
+            rows += f"""
+            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                <strong>{p.text}</strong>
+                <button disabled style="margin-left: 10px; padding: 5px 10px; background: #ff9800; color: white; border: none; border-radius: 3px;">
+                    Запустить анализ
+                </button>
+                <small>(временно недоступно)</small>
+            </div>
+            """
+        columns = []
+
+    else:
+        # fallback на proverbs
         data = get_proverbs()
         columns = ["ID", "Текст", "Дата добавления"]
         rows = "".join(
-            f"<tr><td>{p.id}</td><td style='text-align: left'>{(p.text[:120] + '...') if len(p.text) > 120 else p.text}</td><td>{p.added_at or '—'}</td></tr>"
+            f"<tr><td><a href='/proverb/{p.id}' style='color: #0066cc;'>{p.id}</a></td>"
+            f"<td style='text-align: left;'>{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td>"
+            f"<td>{p.added_at or '—'}</td></tr>"
             for p in data
         )
 
     if not rows:
-        rows = "<tr><td colspan='5' style='color: #999'>Нет данных</td></tr>"
+        rows = "<tr><td colspan='5' style='color: #999;'>Нет данных</td></tr>"
 
-    # --- Генерация HTML ---
+    # --- Вкладки ---
+    tabs_html = """
+    <div class="tabs">
+        <a href="/admin?tab=proverbs" class="tab">Пословицы</a>
+        <a href="/admin?tab=prompts" class="tab">Промты</a>
+        <a href="/admin?tab=models" class="tab">Модели ИИ</a>
+        <a href="/admin?tab=control" class="tab">Управление</a>
+    </div>
+    """
+
     return f"""
     <html>
     <head>
         <title>Админ-панель FedorBot</title>
         <style>
             body {{ font-family: sans-serif; padding: 20px; background: #f7f7f7; }}
-            h1 {{ color: #333; }}
+            h1, h2, h3 {{ color: #333; }}
             .tabs {{ margin: 20px 0; display: flex; gap: 10px; }}
-            .tab {{ padding: 10px 20px; background: #eee; border: 1px solid #ccc; cursor: pointer; border-radius: 5px 5px 0 0; }}
-            .tab.active {{ background: white; border-bottom: none; font-weight: bold; }}
+            .tab {{ padding: 10px 20px; background: #eee; border: 1px solid #ccc; text-decoration: none; border-radius: 5px 5px 0 0; }}
+            .tab:hover {{ background: #ddd; }}
             table {{ width: 100%; border-collapse: collapse; margin: 20px 0; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
             th, td {{ padding: 12px; text-align: center; border-bottom: 1px solid #ddd; }}
             th {{ background: #4CAF50; color: white; }}
             tr:hover {{ background-color: #f1f1f1; }}
             .search {{ margin: 20px 0; }}
+            .btn {{ margin: 0 5px; padding: 8px 12px; border: none; border-radius: 4px; text-decoration: none; color: white; cursor: pointer; }}
             .footer {{ margin-top: 40px; color: #888; font-size: 14px; }}
+            .btn {{
+                margin: 0 10px;
+                padding: 10px 15px;
+                background: #0066cc;
+                color: white;
+                text-decoration: none;
+                border-radius: 5px;
+                display: inline-block;
+                font-size: 14px;
+            }}
         </style>
     </head>
     <body>
+        <p style="text-align: right;">
+            <small>Привет, <strong>{session.get('username', 'Админ')}</strong> | 
+            <a href="/logout" style="color: #f44336;">Выход</a></small>
+        </p>
         <h1>🔐 Админ-панель FedorBot</h1>
         <p>Управление данными бота через веб-интерфейс.</p>
-
         <a href="/swagger" style="color: #0066cc; font-size: 16px;">📄 API (Swagger)</a>
 
-        <!-- Вкладки -->
-        <div class="tabs">
-            <a href="/admin?tab=proverbs" class="tab {'active' if tab == 'proverbs' else ''}">Пословицы</a>
-            <a href="/admin?tab=prompts" class="tab {'active' if tab == 'prompts' else ''}">Промты</a>
-            <a href="/admin?tab=models" class="tab {'active' if tab == 'models' else ''}">Модели ИИ</a>
-        </div>
+        {tabs_html}
 
-        <!-- Поиск -->
         <form method="get" class="search">
             <input type="hidden" name="tab" value="{tab}">
             <input type="text" name="q" value="{search}" placeholder="Поиск..." style="padding: 10px; width: 300px;">
@@ -256,17 +465,7 @@ def admin_page():
             <a href="/admin?tab={tab}" style="margin-left: 10px; color: #666;">Сбросить</a>
         </form>
 
-        <!-- Таблица -->
-        <table>
-            <thead>
-                <tr>
-                    {''.join(f'<th>{col}</th>' for col in columns)}
-                </tr>
-            </thead>
-            <tbody>
-                {rows}
-            </tbody>
-        </table>
+        {('<table><thead><tr>' + ''.join(f'<th>{col}</th>' for col in columns) + '</tr></thead><tbody>' + rows + '</tbody></table>') if columns else rows}
 
         <div class="footer">
             <p>База данных: <strong>fedorbot.db</strong> | Время загрузки: {datetime.now().strftime('%H:%M:%S')}</p>
@@ -274,12 +473,194 @@ def admin_page():
         </div>
     </body>
     </html>
-    """, 200
+    """
+
+
+# --- Детали пословицы ---
+@app.route("/proverb/<int:proverb_id>")
+@login_required
+def view_proverb(proverb_id):
+    with engine.connect() as conn:
+        proverb = conn.execute(
+            text("SELECT id, text, added_at FROM proverbs WHERE id = :id AND is_active = 1"),
+            {"id": proverb_id}
+        ).fetchone()
+
+        if not proverb:
+            return "<h1>❌ Пословица не найдена</h1><p><a href='/admin'>← Назад</a></p>", 404
+
+        responses = conn.execute(
+            text("""
+                SELECT ar.response, ar.prompt, m.name as model_name, ar.created_at
+                FROM ai_responses ar
+                JOIN models m ON ar.model_id = m.id
+                WHERE ar.proverb_id = :id
+                ORDER BY m.name
+            """),
+            {"id": proverb_id}
+        ).fetchall()
+
+    responses_html = ""
+    if responses:
+        for r in responses:
+            prompt_short = (r.prompt[:150] + "...") if len(r.prompt) > 150 else r.prompt
+            response_text = r.response.replace("\n", "<br>")
+            responses_html += f"""
+            <div style="margin: 15px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+                <h3>🤖 {r.model_name}</h3>
+                <p><strong>Промт:</strong> {prompt_short}</p>
+                <p><strong>Ответ:</strong></p>
+                <p style="background: white; padding: 10px; border-radius: 5px; font-style: italic;">{response_text}</p>
+                <small style="color: #666;">Дата: {r.created_at}</small>
+            </div>
+            """
+    else:
+        responses_html = "<p><em>❌ Нет ответов ИИ. Проанализируйте в боте.</em></p>"
+
+    return f"""
+    <html>
+    <head><title>Пословица #{proverb_id}</title></head>
+    <body style="font-family: sans-serif; padding: 20px;">
+        <h1>📜 Пословица #{proverb_id}</h1>
+        <p style="font-size: 18px; font-style: italic; color: #333;">«{proverb.text}»</p>
+        <p><strong>Добавлена:</strong> {proverb.added_at or '—'}</p>
+        <hr>
+        <h2>💬 Ответы моделей ИИ</h2>
+        {responses_html}
+        <p><a href="/admin?tab=proverbs" style="color: #0066cc;">← Назад к списку</a></p>
+    </body>
+    </html>
+    """
+
+
+# --- Переключение модели ---
+@app.route("/toggle_model/<int:model_id>")
+@login_required
+def toggle_model(model_id):
+    try:
+        with engine.connect() as conn:
+            current = conn.execute(
+                text("SELECT is_active FROM models WHERE id = :id"),
+                {"id": model_id}
+            ).fetchone()
+            if not current:
+                return "❌ Модель не найдена", 404
+
+            new_status = 0 if current.is_active else 1
+            conn.execute(
+                text("UPDATE models SET is_active = :status WHERE id = :id"),
+                {"status": new_status, "id": model_id}
+            )
+            conn.commit()
+
+        return f"""
+        <script>alert('Статус обновлён!'); window.location.href='/admin?tab=control';</script>
+        """
+    except Exception as e:
+        return f"❌ Ошибка: {e}", 500
+
+@app.route("/add_proverb", methods=["POST"])
+@login_required
+def add_proverb():
+    text = request.form.get("text", "").strip()
+    if not text:
+        return "<script>alert('❌ Текст пословицы не может быть пустым!'); window.history.back();</script>"
+
+    try:
+        print(f"🔧 Добавляем пословицу: {text[:50]}...")  # ← лог в консоль
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    INSERT INTO proverbs (text, is_active, added_at)
+                    VALUES (:text, 1, datetime('now'))
+                """),
+                {"text": text}
+            )
+            conn.commit()  # ← ВАЖНО: для SQLAlchemy нужно явно коммитить!
+            print("✅ Пословица добавлена в БД")
+        return "<script>alert('✅ Пословица добавлена!'); window.location.href='/admin?tab=proverbs';</script>"
+    except Exception as e:
+        print(f"🔴 Ошибка при добавлении пословицы: {e}")  # ← видно в терминале
+        return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
 
 
 
+@app.route("/add_prompt", methods=["POST"])
+@login_required
+def add_prompt():
+    text = request.form.get("text", "").strip()
+    if not text:
+        return "<script>alert('❌ Текст промта не может быть пустым!'); window.history.back();</script>"
+
+    try:
+        print(f"🔧 Добавляем промт: {text[:50]}...")  # ← лог
+        with engine.connect() as conn:
+            conn.execute(
+                text("""
+                    INSERT INTO prompts (text, is_active, created_by, created_at)
+                    VALUES (:text, 1, 'web_admin', datetime('now'))
+                """),
+                {"text": text}
+            )
+            conn.commit()  # ← обязательно!
+            print("✅ Промт добавлен в БД")
+        return "<script>alert('✅ Промт добавлен!'); window.location.href='/admin?tab=prompts';</script>"
+    except Exception as e:
+        print(f"🔴 Ошибка при добавлении промта: {e}")
+        return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
+
+@app.route("/delete_proverb/<int:proverb_id>", methods=["POST"])
+@login_required
+def delete_proverb(proverb_id):
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT text FROM proverbs WHERE id = :id"),
+                {"id": proverb_id}
+            ).fetchone()
+
+            if not result:
+                return "<script>alert('❌ Пословица не найдена'); window.history.back();</script>"
+
+            conn.execute(
+                text("DELETE FROM proverbs WHERE id = :id"),
+                {"id": proverb_id}
+            )
+            conn.commit()
+        return "<script>alert('✅ Пословица удалена'); window.location.href='/admin?tab=proverbs';</script>"
+    except Exception as e:
+        return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
+
+
+@app.route("/delete_prompt/<int:prompt_id>", methods=["POST"])
+@login_required
+def delete_prompt(prompt_id):
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT text FROM prompts WHERE id = :id"),
+                {"id": prompt_id}
+            ).fetchone()
+
+            if not result:
+                return "<script>alert('❌ Промт не найден'); window.history.back();</script>"
+
+            conn.execute(
+                text("DELETE FROM prompts WHERE id = :id"),
+                {"id": prompt_id}
+            )
+            conn.commit()
+        return "<script>alert('✅ Промт удалён'); window.location.href='/admin?tab=prompts';</script>"
+    except Exception as e:
+        return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
+
+
+# --- Запуск ---
 if __name__ == "__main__":
-    print("🌐 Веб-интерфейс запущен: http://localhost:5000")
-    print("📄 API документация (Swagger): http://localhost:5000/swagger")
-    print("🔐 Админ-панель: http://localhost:5000/admin")
+    print("\n" + "="*60)
+    print("🌐 Веб-интерфейс запущен!")
+    print("🏠 Откройте: http://localhost:5000")
+    print("📊 Админка: /admin")
+    print("📘 API: /swagger")
+    print("="*60)
     app.run(host="127.0.0.1", port=5000, debug=True)

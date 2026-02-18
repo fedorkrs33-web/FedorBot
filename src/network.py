@@ -6,12 +6,15 @@ from typing import Dict, Any, Optional, Tuple
 import base64
 import uuid
 import logging
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 
 class NetworkError(Exception):
     """Общее исключение для сетевых ошибок"""
     pass
+
+
 
 class Network:
     @staticmethod
@@ -202,24 +205,26 @@ class Network:
         
     @staticmethod
     async def _send_to_yandex(prompt: str) -> str:
-        """Отправка в Yandex GPT через aiohttp (асинхронно)"""
+        """Отправка в Yandex GPT через aiohttp (асинхронно) с использованием IAM-токена"""
         try:
-            # Получаем переменные окружения
-            iam_token = os.getenv("YANDEX_IAM_TOKEN")
-            folder_id = os.getenv("YANDEX_FOLDER_ID")
+            # Получаем креды через вашу функцию
+            iam_token, folder_id = Config.get_yandex_credentials()
 
             if not iam_token or not folder_id:
-                error_msg = "❌ Не заданы YANDEX_IAM_TOKEN или YANDEX_FOLDER_ID"
+                error_msg = "❌ Не удалось получить IAM-токен или Folder ID"
                 logger.error(error_msg)
                 return error_msg
 
+            # Формируем тело запроса
             payload = {
                 "modelUri": f"gpt://{folder_id}/yandexgpt/latest",
                 "completionOptions": {
                     "temperature": 0.7,
                     "maxTokens": "1024"
                 },
-                "messages": [{"role": "user", "text": prompt}]
+                "messages": [
+                    {"role": "user", "text": prompt}
+                ]
             }
 
             headers = {
@@ -227,8 +232,8 @@ class Network:
                 "Content-Type": "application/json"
             }
 
-            logger.debug(f"📤 POST Yandex GPT (folder: {folder_id})")
-            
+            logger.info(f"🌐 Отправляю запрос в Yandex GPT (folder: {folder_id})")
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
@@ -246,7 +251,7 @@ class Network:
                             return text.strip()
                         except (KeyError, IndexError, TypeError) as e:
                             error_msg = "⚠️ Ответ получен, но не удалось извлечь текст"
-                            logger.warning(error_msg)
+                            logger.warning(f"{error_msg}: {e}")
                             return error_msg
                     else:
                         try:
@@ -268,5 +273,5 @@ class Network:
             return error_msg
         except Exception as e:
             error_msg = f"❌ Неизвестная ошибка при запросе к Yandex GPT: {str(e)}"
-            logger.exception(error_msg)  # полный стек
+            logger.exception(error_msg)
             return error_msg

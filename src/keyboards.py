@@ -1,6 +1,8 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy import select, func
 from src.database import get_session
+from src.models import Model, Proverb
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from src.buttons import (
     BTN_PROVERB,
     BTN_ANALYZE_II,
@@ -29,7 +31,7 @@ async def get_proverbs_keyboard(page: int = 0, limit: int = 5) -> InlineKeyboard
     from src.models import Proverb, AIResponse
 
     keyboard = []
-    async for session in get_session():
+    async with get_session() as session:
         try:
             result = await session.execute(
                 select(Proverb)
@@ -98,29 +100,24 @@ def get_proverb_menu() -> ReplyKeyboardMarkup:
 
 
 # Клавиатура для списка моделей
-async def get_models_toggle_keyboard() -> InlineKeyboardMarkup:
+async def get_models_toggle_keyboard():
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    from sqlalchemy import select
+    from src.database import get_session
     from src.models import Model
 
-    keyboard = []
-    async for session in get_session():
+    keyboard = InlineKeyboardBuilder()
+    async with get_session() as session:
         result = await session.execute(select(Model))
         models = result.scalars().all()
-
         for model in models:
             status = "✅" if model.is_active else "❌"
-            btn_text = f"{status} {model.name} ({model.provider})"
-            keyboard.append([
-                InlineKeyboardButton(
-                    text=btn_text,
-                    callback_data=f"toggle_model_{model.id}"
-                )
-            ])
-
-        keyboard.append([InlineKeyboardButton(text="🔄 Обновить", callback_data="ai_list_models")])
-        keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_back")])
-
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
+            keyboard.button(
+                text=f"{status} {model.name}",
+                callback_data=f"toggle_model_{model.id}"
+            )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
 
 # Клавиатура для возврата в меню управления
 def get_back_to_admin_menu() -> ReplyKeyboardMarkup:

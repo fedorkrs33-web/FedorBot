@@ -1,3 +1,4 @@
+import logging
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram import F
@@ -5,15 +6,14 @@ from src.config import ADMIN_IDS
 from src.keyboards import get_main_menu, get_admin_menu, get_proverbs_keyboard
 from src.database import get_session
 from src.models import User, Proverb, AIResponse, Model
-from sqlalchemy import select, func
-import logging
+from sqlalchemy import select, func, delete
 
 router = Router()
 
 @router.message(Command(commands=['start']))
 async def cmd_start(message: types.Message):
     print("🔧 /start: начало обработки")
-    async for session in get_session():
+    async with get_session() as session:
         try:
             user_id = str(message.from_user.id)
             username = message.from_user.username
@@ -94,7 +94,7 @@ async def cmd_help(message: types.Message):
 async def callback_proverb_analysis(callback: types.CallbackQuery):
     proverb_id = int(callback.data.split("_")[1])
     
-    async for session in get_session():
+    async with get_session() as session:
         # Получаем пословицу
         proverb = await session.get(Proverb, proverb_id)
         if not proverb or not proverb.is_active:

@@ -4,8 +4,9 @@ from aiogram import Router, types, F
 from aiogram.filters import Command
 from src.config import ADMIN_IDS
 from src.database import get_session
-from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, delete
+from sqlalchemy.orm import selectinload
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 import logging
 from src.keyboards import (
@@ -91,7 +92,11 @@ async def process_analyze_proverb(callback: types.CallbackQuery):
 
             await callback.message.edit_text(f"🔍 Анализируем пословицу:\n\n«{proverb.text}»\n\nПодождите...")
 
-            result = await session.execute(select(Model).where(Model.is_active == True))
+            result = await session.execute(
+                select(Model)
+                .where(Model.is_active == True)
+                .options(selectinload(Model.prompt))  # ← Подгружаем prompt сразу
+            )
             active_models = result.scalars().all()
 
             if not active_models:
@@ -478,8 +483,8 @@ async def cmd_link_prompt_to_model(message: types.Message):
 @router.callback_query(F.data.startswith("select_model_for_prompt:"))
 async def callback_select_model_for_prompt(callback: types.CallbackQuery):
     try:
-        model_id = int(callback.data.split(":")[1])  # "select_model_for_prompt:5" → [1] = "5"
-        
+        model_id = int(callback.data.split(":")[1])
+
         async with get_session() as session:
             model = await session.get(Model, model_id)
             if not model:
@@ -490,27 +495,74 @@ async def callback_select_model_for_prompt(callback: types.CallbackQuery):
                 select(Prompt).where(Prompt.is_active == True)
             )).scalars().all()
 
+            if not prompts:
+                await callback.message.edit_text("📭 Нет доступных промптов. Сначала добавьте хотя бы один.")
+                return
+
+            # Формируем inline-кнопки — теперь только названия (без текста)
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(
-                    text=p.text[:30] + "...",
-                    callback_data=f"assign_prompt:{model.id}:{p.id}"
+                    text=f"🔹 {p.text[:40]}{'...' if len(p.text) > 40 else ''}",
+                    callback_data=f"preview_prompt:{model.id}:{p.id}"
                 )] for p in prompts
             ])
             kb.inline_keyboard.append([
                 InlineKeyboardButton(text="❌ Без промта", callback_data=f"assign_prompt:{model.id}:null")
             ])
             kb.inline_keyboard.append([
-                InlineKeyboardButton(text="Назад", callback_data="back_to_admin")
+                InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_admin")
             ])
 
             await callback.message.edit_text(
-                f"Выберите промт для модели *{model.name}*",
+                f"Выберите промт для модели *{model.name}*\n\n"
+                "👉 Нажмите на промт, чтобы увидеть полный текст.",
                 reply_markup=kb,
                 parse_mode="Markdown"
             )
         await callback.answer()
     except Exception as e:
         logging.error(f"Ошибка в callback_select_model_for_prompt: {e}")
+        await callback.answer("❌ Ошибка")
+
+@router.callback_query(F.data.startswith("preview_prompt:"))
+async def callback_preview_prompt(callback: types.CallbackQuery):
+    try:
+        parts = callback.data.split(":")
+        model_id = int(parts[1])
+        prompt_id = int(parts[2])
+
+        async with get_session() as session:
+            model = await session.get(Model, model_id)
+            prompt = await session.get(Prompt, prompt_id)
+
+            if not model or not prompt or not prompt.is_active:
+                await callback.answer("❌ Данные не найдены.")
+                return
+
+            # Экранируем для Markdown
+            escaped_text = prompt.text.replace('`', '\\`')
+
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="✅ Привязать этот промт",
+                    callback_data=f"assign_prompt:{model.id}:{prompt.id}"
+                )],
+                [InlineKeyboardButton(
+                    text="⬅️ Выбрать другой",
+                    callback_data=f"select_model_for_prompt:{model.id}"
+                )]
+            ])
+
+            await callback.message.edit_text(
+                f"📄 *Полный текст промта для модели «{model.name}»:*\n\n"
+                f"```\n{escaped_text}\n```\n\n"
+                f"📌 Подтвердите привязку:",
+                reply_markup=kb,
+                parse_mode="Markdown"
+            )
+        await callback.answer()
+    except Exception as e:
+        logging.error(f"Ошибка при предпросмотре промта: {e}")
         await callback.answer("❌ Ошибка")
 
 

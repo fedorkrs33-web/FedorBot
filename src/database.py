@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import func
+from sqlalchemy import select, func
 from src.config import DATABASE_URL
 from src.initial_data import insert_initial_models
 from src.models import Model

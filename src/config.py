@@ -1,5 +1,10 @@
 import os
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
+import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 # --- Настройки проекта ---
 PROJECT_DIR = os.getcwd()
@@ -25,7 +30,7 @@ GIGACHAT_CLIENT_ID=ваш_client_id
 GIGACHAT_CLIENT_SECRET=ваш_client_secret
 
 # 🔐 Yandex GPT
-YANDEX_IAM_TOKEN=ваш_iam_token
+YANDEX_OAUTH_TOKEN=ваш_iam_token
 YANDEX_FOLDER_ID=ваш_folder_id
 
 # 🌐 Другие модели (если используются)
@@ -88,7 +93,7 @@ REQUIRED_KEYS = [
     "POLZAAI_API_KEY",
     "GIGACHAT_CLIENT_ID",
     "GIGACHAT_CLIENT_SECRET",
-    "YANDEX_IAM_TOKEN",
+    "YANDEX_OAUTH_TOKEN",
     "YANDEX_FOLDER_ID"
 ]
 
@@ -104,6 +109,63 @@ if missing:
     print(f"   Образец: {DOTENV_EXAMPLE_PATH}")
     print(f"   Редактируйте: {DOTENV_PATH}")
     raise ValueError(f"Отсутствуют переменные окружения: {missing}")
+
+class Config:
+    # Кэширование IAM-токена
+    _cached_iam_token = None
+    _token_expiry = None
+
+    @classmethod
+    def get_yandex_credentials(cls):
+        """
+        Возвращает IAM-токен и Folder ID.
+        Использует кэширование токена (живёт 12 часов).
+        """
+        oauth_token = os.getenv("YANDEX_OAUTH_TOKEN")
+        folder_id = os.getenv("YANDEX_FOLDER_ID")
+
+        if not oauth_token or not folder_id:
+            logger.error("❌ Не заданы YANDEX_OAUTH_TOKEN или YANDEX_FOLDER_ID")
+            return None, None
+
+        # Проверяем кэш
+        if (
+            cls._cached_iam_token
+            and cls._token_expiry
+            and datetime.now() < cls._token_expiry
+        ):
+            logger.debug("🔁 Используем кэшированный IAM-токен")
+            return cls._cached_iam_token, folder_id
+
+        # Обновляем токен
+        new_token = cls._fetch_iam_token(oauth_token)
+        if new_token:
+            cls._cached_iam_token = new_token
+            cls._token_expiry = datetime.now() + timedelta(hours=11)  # обновим раньше истечения
+            logger.info("✅ Новый IAM-токен получен и закэширован")
+            return new_token, folder_id
+
+        return None, None
+
+    @staticmethod
+    def _fetch_iam_token(oauth_token: str) -> str | None:
+        """Запрашивает новый IAM-токен через OAuth"""
+        try:
+            response = requests.post(
+                "https://iam.api.cloud.yandex.net/iam/v1/tokens",
+                json={"yandexPassportOauthToken": oauth_token},
+                timeout=10
+            )
+            if response.status_code == 200:
+                data = response.json()
+                expires_at = datetime.fromisoformat(data["expiresAt"].replace("Z", "+00:00"))
+                logger.debug(f"IAM-токен получен, срок действия до: {expires_at}")
+                return data["iamToken"]
+            else:
+                logger.error(f"❌ Ошибка при получении IAM-токена: {response.status_code} — {response.text}")
+        except Exception as e:
+            logger.exception(f"❌ Исключение при получении IAM-токена: {e}")
+        return None
 
 # --- 7. Успешный старт ---
 print(f"✅ Все переменные окружения загружены.")

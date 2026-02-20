@@ -10,8 +10,9 @@ __pycache__/
 .env.local
 
 # Database
-
+*.db
 *.sqlite
+fedorbot.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

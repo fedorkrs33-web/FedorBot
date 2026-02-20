@@ -6,6 +6,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from src.config import ADMIN_IDS
+from src.states import PromptStates
 from src.database import get_session, AsyncSessionLocal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete, update
@@ -23,7 +24,6 @@ from src.keyboards import (
 from src.network import Network
 import asyncio
 from datetime import datetime
-from src.states import PromptStates
 from src.models import User, Message, Proverb, Model, AIResponse, Prompt, Comparison
 from src.buttons import (
     BTN_PROVERB, BTN_ANALYZE_II, BTN_MODELS, BTN_PROMPTS,

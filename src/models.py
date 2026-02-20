@@ -60,6 +60,7 @@ class Prompt(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     created_by = Column(String, ForeignKey('users.user_id'), nullable=True)
+    type = Column(String, default="standard")
 
     # Связь с пользователем
     author = relationship("User", back_populates="prompts")

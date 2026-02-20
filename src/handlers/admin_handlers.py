@@ -1,14 +1,16 @@
 import logging
 logger = logging.getLogger(__name__)
+import re
 from aiogram import Router, types, F
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
 from src.config import ADMIN_IDS
-from src.database import get_session
+from src.database import get_session, AsyncSessionLocal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-import logging
 from src.keyboards import (
     get_admin_menu,
     get_proverb_menu,
@@ -29,10 +31,14 @@ from src.buttons import (
     BTN_ADD_PROMPT, BTN_DELETE_PROMPT, BTN_LINK_PROMPT_TO_MODEL,
     BTN_BACK
 )
-
+from src.utils import safe_send_message
 
 
 router = Router()
+
+class AddProverb(StatesGroup):
+    waiting_for_text = State()
+
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -47,12 +53,44 @@ async def cmd_proverb_menu(message: types.Message):
 
 # Обработка кнопки "Добавить" в подменю
 @router.message(F.text == BTN_ADD_PROVERB)
-async def cmd_add_proverb(message: types.Message):
+async def cmd_add_proverb(message: types.Message, state: FSMContext):
+    logger.info(f"Админ {message.from_user.id} нажал 'Добавить пословицу'")
     if not is_admin(message.from_user.id):
         await message.answer("❌ Нет прав.")
         return
     await message.answer("Введите текст новой пословицы:")
-    # Здесь должна быть реализация FSM для добавления
+    await state.set_state(AddProverb.waiting_for_text)
+
+@router.message(AddProverb.waiting_for_text, F.text)
+async def process_proverb_text(message: Message, state: FSMContext):
+    text = message.text.strip()
+    if len(text) < 5:
+        await message.answer("❌ Слишком короткая пословица. Попробуйте ещё раз:")
+        return
+
+    try:
+        async with AsyncSessionLocal() as session:
+            # Проверим, нет ли уже такой
+            result = await session.execute(
+                select(Proverb).where(Proverb.text == text)
+            )
+            if result.scalar():
+                await message.answer("⚠️ Такая пословица уже есть.")
+                await state.clear()
+                return
+
+            # Добавляем
+            new_proverb = Proverb(text=text, is_active=True)
+            session.add(new_proverb)
+            await session.commit()
+            await message.answer(f"✅ Пословица добавлена:\n\n«{text}»")
+
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при сохранении: {e}")
+        logger.error(f"Ошибка добавления пословицы: {e}")
+
+    finally:
+        await state.clear()
 
 # Обработка кнопки "Удалить" в подменю
 @router.message(F.text == BTN_DELETE_PROVERB)
@@ -62,6 +100,14 @@ async def cmd_delete_proverb(message: types.Message):
         return
     keyboard = await get_proverbs_keyboard(0)
     await message.answer("Выберите пословицу для удаления:", reply_markup=keyboard)
+
+def escape_markdown_v2(text: str) -> str:
+    """
+    Экранирует спецсимволы для MarkdownV2 в Telegram.
+    """
+    # Символы, которые нужно экранировать: https://core.telegram.org/bots/api#markdownv2-style
+    escape_chars = r'_*[]()~>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
 
 # Обработка кнопки "Анализ ИИ"
 @router.message(F.text == BTN_ANALYZE_II)
@@ -73,7 +119,7 @@ async def cmd_analyze_ii(message: types.Message):
     await message.answer("Выберите пословицу для анализа:", reply_markup=keyboard)
 
 
-# Обработка выбора пословицы для анализа
+# --- Обработка выбора пословицы для анализа ---
 @router.callback_query(F.data.startswith("analyze_"))
 async def process_analyze_proverb(callback: types.CallbackQuery):
     try:
@@ -87,23 +133,35 @@ async def process_analyze_proverb(callback: types.CallbackQuery):
             proverb = result.scalar_one_or_none()
 
             if not proverb:
-                await callback.message.edit_text("❌ Пословица не найдена или удалена.")
+                await safe_send_message(
+                    message=callback,
+                    text="❌ Пословица не найдена или удалена.",
+                    edit=True
+                )
                 return
 
-            await callback.message.edit_text(f"🔍 Анализируем пословицу:\n\n«{proverb.text}»\n\nПодождите...")
+            # Показываем статус
+            await safe_send_message(
+                message=callback,
+                text=f"🔍 Анализируем пословицу:\n\n«{proverb.text}»\n\nПодождите...",
+                edit=True
+            )
 
             result = await session.execute(
                 select(Model)
                 .where(Model.is_active == True)
-                .options(selectinload(Model.prompt))  # ← Подгружаем prompt сразу
+                .options(selectinload(Model.prompt))
             )
             active_models = result.scalars().all()
 
             if not active_models:
-                await callback.message.edit_text("⚠️ Нет активных моделей ИИ.")
+                await safe_send_message(
+                    message=callback,
+                    text="⚠️ Нет активных моделей ИИ.",
+                    edit=True
+                )
                 return
 
-        # Сбор ответов
         network = Network()
         responses = []
 
@@ -150,10 +208,14 @@ async def process_analyze_proverb(callback: types.CallbackQuery):
             except Exception as e:
                 await session.rollback()
                 logging.error(f"Ошибка при сохранении ответов: {e}")
-                await callback.message.edit_text("❌ Не удалось сохранить результаты.")
+                await safe_send_message(
+                    message=callback,
+                    text="❌ Не удалось сохранить результаты.",
+                    edit=True
+                )
                 return
 
-        # Формирование результата
+        # Формируем текст результата
         result_text = f"✅ Результаты анализа пословицы:\n\n«{proverb.text}»\n\n"
         for r in responses:
             result_text += f"\n🤖 *{r['model']}*\n{r['response']}\n"
@@ -166,37 +228,61 @@ async def process_analyze_proverb(callback: types.CallbackQuery):
                 InlineKeyboardButton(text="Сравнить интерпретации", callback_data=f"compare_{proverb_id}")
             ])
 
-        if len(result_text) > 4000:
-            parts = [result_text[i:i+4000] for i in range(0, len(result_text), 4000)]
-            await callback.message.edit_text(parts[0], reply_markup=None, parse_mode="Markdown")
-            for part in parts[1:]:
-                await callback.message.answer(part, parse_mode="Markdown")
-        else:
-            await callback.message.edit_text(result_text, reply_markup=keyboard, parse_mode="Markdown")
+        await safe_send_message(
+            message=callback,
+            text=result_text,
+            reply_markup=keyboard,
+            edit=True
+        )
 
     except Exception as e:
         logging.error(f"Ошибка при анализе пословицы: {e}")
-        await callback.message.edit_text("❌ Произошла ошибка при анализе.")
-
+        await safe_send_message(
+            message=callback,
+            text="❌ Произошла ошибка при анализе.",
+            edit=True
+        )
 
 # --- СРАВНЕНИЕ ИНТЕРПРЕТАЦИЙ ---
 @router.callback_query(F.data.startswith("compare_"))
 async def cmd_compare_interpretations(callback: types.CallbackQuery):
+    logger.info(f"🔁 Получен callback: {callback.data}")
+
     try:
         await callback.answer()
-        proverb_id = int(callback.data.split("_")[1])
+        data = callback.data.strip()
+
+        if not data.startswith("compare_"):
+            logger.warning(f"❌ Неверный формат: {data}")
+            return
+
+        try:
+            proverb_id = int(data.split("_")[1])
+        except (IndexError, ValueError) as e:
+            logger.error(f"❌ Ошибка парсинга ID: {data} — {e}")
+            await safe_send_message(
+                message=callback,
+                text="❌ Неверный ID пословицы.",
+                edit=True
+            )
+            return
+
+        logger.info(f"🔍 Запрос на сравнение для пословицы {proverb_id}")
 
         async with get_session() as session:
             result = await session.execute(
                 select(Proverb).where(Proverb.id == proverb_id, Proverb.is_active == True)
-            )    
+            )
             proverb = result.scalar_one_or_none()
 
-            if not proverb or not proverb.is_active:
-                await callback.message.edit_text("❌ Пословица не найдена.")
+            if not proverb:
+                await safe_send_message(
+                    message=callback,
+                    text="❌ Пословица не найдена.",
+                    edit=True
+                )
                 return
 
-            # Получаем все ответы ИИ
             result = await session.execute(
                 select(AIResponse)
                 .join(Model)
@@ -205,9 +291,13 @@ async def cmd_compare_interpretations(callback: types.CallbackQuery):
             )
             responses = result.scalars().all()
 
+            logger.info(f"📊 Найдено ответов: {len(responses)}")
+
             if len(responses) < 2:
-                await callback.message.edit_text(
-                    "⚠️ Нужно как минимум 2 ответа для сравнения."
+                await safe_send_message(
+                    message=callback,
+                    text="⚠️ Нужно минимум 2 ответа для сравнения.",
+                    edit=True
                 )
                 return
 
@@ -215,7 +305,7 @@ async def cmd_compare_interpretations(callback: types.CallbackQuery):
             sorted_model_ids = sorted({r.model_id for r in responses})
             model_ids_str = ",".join(map(str, sorted_model_ids))
 
-            # 🔍 Проверяем кэш
+            # Проверяем кэш
             cache_result = await session.execute(
                 select(Comparison).where(
                     Comparison.proverb_id == proverb_id,
@@ -225,12 +315,23 @@ async def cmd_compare_interpretations(callback: types.CallbackQuery):
             cached = cache_result.scalar_one_or_none()
 
             if cached:
-                result_text = cached.result_text
-                await callback.message.edit_text("📊 Найдено в кэше. Загружаю сравнение...")
+                    result_text = cached.result_text
+                    await safe_send_message(
+                        message=callback,
+                        text="📊 Найдено в кэше. Загружаю сравнение...",
+                        edit=True
+                    )
             else:
-                # Формируем промпт для сравнения
-                comparison_text = f"""
-Пословица: "{proverb.text}"
+                # Читаем промпт для сравнения из БД
+                compare_prompt_result = await session.execute(
+                    select(Prompt).where(Prompt.is_active == True, Prompt.type == "compare_interpretations")
+                )
+                compare_prompt = compare_prompt_result.scalar_one_or_none()
+
+                if not compare_prompt:
+                    # Резервный вариант
+                    base_prompt = """
+Пословица: "{proverb}"
 
 Проанализируй и сравни следующие интерпретации. Выдели:
 1. Общие идеи
@@ -242,6 +343,12 @@ async def cmd_compare_interpretations(callback: types.CallbackQuery):
 
 Интерпретации:
 """
+                else:
+                    base_prompt = compare_prompt.text
+
+                # Подставляем пословицу
+                comparison_text = base_prompt.replace("{proverb}", proverb.text)
+
                 for resp in responses:
                     name = resp.model.name if resp.model else "Неизвестно"
                     content = resp.response[:600] + "..." if len(resp.response) > 600 else resp.response
@@ -249,9 +356,12 @@ async def cmd_compare_interpretations(callback: types.CallbackQuery):
 
                 comparison_text += "\n\nСравни и сделай вывод."
 
-                await callback.message.edit_text("🔍 Сравниваю интерпретации... Подождите.")
+                await safe_send_message(
+                    message=callback,
+                    text="🔍 Сравниваю интерпретации... Подождите.",
+                    edit=True
+                )
 
-                # Отправляем в GigaChat
                 network = Network()
                 model_data = {
                     "name": "GigaChat",
@@ -267,7 +377,6 @@ async def cmd_compare_interpretations(callback: types.CallbackQuery):
                         timeout=30.0
                     )
 
-                    # 📦 Сохраняем в кэш
                     new_comparison = Comparison(
                         proverb_id=proverb_id,
                         result_text=result_text,
@@ -277,29 +386,40 @@ async def cmd_compare_interpretations(callback: types.CallbackQuery):
                     await session.commit()
 
                 except asyncio.TimeoutError:
-                    await callback.message.edit_text("⏰ Время ожидания истекло при сравнении.")
+                    await safe_send_message(
+                        message=callback,
+                        text="⏰ Время ожидания истекло при сравнении.",
+                        edit=True
+                    )
                     return
                 except Exception as e:
                     logging.error(f"Ошибка при генерации сравнения: {e}")
-                    await callback.message.edit_text("❌ Ошибка при сравнении.")
+                    await safe_send_message(
+                        message=callback,
+                        text="❌ Ошибка при сравнении.",
+                        edit=True
+                    )
                     return
 
-            # ✅ Отправляем результат (всегда)
-            if len(result_text) > 4000:
-                parts = [result_text[i:i+4000] for i in range(0, len(result_text), 4000)]
-                await callback.message.edit_text(parts[0], parse_mode="Markdown")
-                for part in parts[1:]:
-                    await callback.message.answer(part, parse_mode="Markdown")
-            else:
-                keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="Назад", callback_data=f"proverb_{proverb_id}")]
-                ])
-                await callback.message.edit_text(result_text, reply_markup=keyboard, parse_mode="Markdown")
+            # Отправляем результат
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Назад", callback_data=f"proverb_{proverb_id}")]
+            ])
+
+            await safe_send_message(
+                message=callback,
+                text=result_text,
+                reply_markup=keyboard,
+                edit=True
+            )
 
     except Exception as e:
         logging.error(f"Ошибка в cmd_compare_interpretations: {e}")
-        await callback.message.edit_text("❌ Произошла ошибка при сравнении.")
-
+        await safe_send_message(
+            message=callback,
+            text="❌ Произошла ошибка при сравнении.",
+            edit=True
+        )
 
 # Обработка кнопки "Модели"
 @router.message(F.text == BTN_MODELS)
@@ -417,6 +537,30 @@ async def cmd_delete_prompt(message: types.Message):
         kb = await get_prompts_list_keyboard(prompts, page=0)
         await message.answer("Выберите промпт для удаления:", reply_markup=kb)
 
+@router.message(F.text == BTN_ADD_COMPARE_PROMPT)
+async def cmd_add_compare_prompt(message: types.Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+    await message.answer("Введите новый промпт для сравнения интерпретаций.\nИспользуйте `{proverb}` как плейсхолдер.")
+    await state.set_state(PromptStates.waiting_for_compare_text)
+
+@router.message(PromptStates.waiting_for_compare_text)
+async def process_compare_prompt(message: types.Message, state: FSMContext):
+    text = message.text.strip()
+    async with get_session() as session:
+        # Удаляем старый (или деактивируем)
+        await session.execute(
+            update(Prompt)
+            .where(Prompt.type == "compare_interpretations")
+            .values(is_active=False)
+        )
+        # Добавляем новый
+        prompt = Prompt(text=text, type="compare_interpretations", is_active=True)
+        session.add(prompt)
+        await session.commit()
+        await message.answer("✅ Новый промпт для сравнения установлен.")
+    await state.clear()
+
 # --- CALLBACK: Пагинация и удаление ---
 @router.callback_query(F.data.startswith("prompt_page_"))
 async def callback_prompt_page(callback: types.CallbackQuery):
@@ -440,7 +584,7 @@ async def callback_delete_prompt(callback: types.CallbackQuery):
             prompt.is_active = False
             await session.commit()
             await callback.answer("🗑️ Промпт удалён.")
-            await callback.message.edit_text("Промпт успешно удалён.", parse_mode="Markdown")
+            await callback.message.edit_text("Промпт успешно удалён.", parse_mode="MarkdownV2")
         except Exception as e:
             await session.rollback()
             logging.error(f"Ошибка при удалении промта: {e}")
@@ -517,7 +661,7 @@ async def callback_select_model_for_prompt(callback: types.CallbackQuery):
                 f"Выберите промт для модели *{model.name}*\n\n"
                 "👉 Нажмите на промт, чтобы увидеть полный текст.",
                 reply_markup=kb,
-                parse_mode="Markdown"
+                parse_mode="MarkdownV2"
             )
         await callback.answer()
     except Exception as e:
@@ -539,7 +683,7 @@ async def callback_preview_prompt(callback: types.CallbackQuery):
                 await callback.answer("❌ Данные не найдены.")
                 return
 
-            # Экранируем для Markdown
+            # Экранируем для MarkdownV2
             escaped_text = prompt.text.replace('`', '\\`')
 
             kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -558,7 +702,7 @@ async def callback_preview_prompt(callback: types.CallbackQuery):
                 f"```\n{escaped_text}\n```\n\n"
                 f"📌 Подтвердите привязку:",
                 reply_markup=kb,
-                parse_mode="Markdown"
+                parse_mode="MarkdownV2"
             )
         await callback.answer()
     except Exception as e:
@@ -611,7 +755,7 @@ async def callback_assign_prompt(callback: types.CallbackQuery):
             await callback.message.edit_text(
                 f"Готово.\n\nМодель: *{model.name}*\nПромт: `{prompt_text_display}`",
                 reply_markup=kb,
-                parse_mode="Markdown"
+                parse_mode="MarkdownV2"
             )
 
     except ValueError as e:

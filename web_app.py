@@ -276,9 +276,13 @@ def admin_page():
             f"""
             <tr>
                 <td><a href='/proverb/{p.id}' style='color: #0066cc;'>{p.id}</a></td>
-                <td style='text-align: left;'>{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td>
+                <td style='text-align: left;' title="{p.text}">{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td>
                 <td>{p.added_at or '—'}</td>
                 <td>
+                    <button onclick="showEditProverbModal({p.id}, `{p.text.replace('`', '\\`')}`)"
+                            style="padding:5px 10px; background:#2196F3; color:white; border:none; border-radius:3px; cursor:pointer; margin-right:5px;">
+                        Редактировать
+                    </button>
                     <form method="post" action="/delete_proverb/{p.id}" style="display:inline;" onsubmit="return confirm('Удалить эту пословицу?');">
                         <button type="submit" style="padding:5px 10px; background:#f44336; color:white; border:none; border-radius:3px; cursor:pointer;">
                             Удалить
@@ -297,9 +301,17 @@ def admin_page():
             f"""
             <tr>
                 <td>{p.id}</td>
-                <td style='text-align: left;'>{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td>
+                <td style='text-align: left; cursor: pointer; color: #0066cc;' 
+                    onclick="showPromptModal({p.id}, `{p.text.replace('`', '\\`')}`)"
+                    title="Кликните, чтобы посмотреть полностью">
+                    {p.text[:120] + '...' if len(p.text) > 120 else p.text}
+                </td>
                 <td>{p.created_at or '—'}</td>
                 <td>
+                    <button onclick="showEditPromptModal({p.id}, `{p.text.replace('`', '\\`')}`)"
+                            style="padding:5px 10px; background:#2196F3; color:white; border:none; border-radius:3px; cursor:pointer; margin-right:5px;">
+                        Редактировать
+                    </button>
                     <form method="post" action="/delete_prompt/{p.id}" style="display:inline;" onsubmit="return confirm('Удалить этот промт?');">
                         <button type="submit" style="padding:5px 10px; background:#f44336; color:white; border:none; border-radius:3px; cursor:pointer;">
                             Удалить
@@ -394,10 +406,14 @@ def admin_page():
         proverbs = get_proverbs_for_analysis()
         rows = "<h3>🔍 Выберите пословицу для анализа ИИ</h3>"
         for p in proverbs:
+            # Экранируем кавычки и обратные кавычки в тексте
+            safe_text = p.text.replace('"', '&quot;').replace('`', '\\`')
             rows += f"""
-            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                <strong>{p.text}</strong>
-                <button disabled style="margin-left: 10px; padding: 5px 10px; background: #ff9800; color: white; border: none; border-radius: 3px;">
+            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer;" 
+                onclick="showPromptModal({p.id}, `{safe_text}`)" 
+                title="Просмотреть полный текст">
+                <strong>{p.text[:120] + '...' if len(p.text) > 120 else p.text}</strong>
+                <button style="margin-left: 10px; padding: 5px 10px; background: #ff9800; color: white; border: none; border-radius: 3px; cursor: pointer;">
                     Запустить анализ
                 </button>
                 <small>(временно недоступно)</small>
@@ -406,13 +422,16 @@ def admin_page():
         columns = []
 
     else:
-        # fallback на proverbs
         data = get_proverbs()
         columns = ["ID", "Текст", "Дата добавления"]
         rows = "".join(
-            f"<tr><td><a href='/proverb/{p.id}' style='color: #0066cc;'>{p.id}</a></td>"
-            f"<td style='text-align: left;'>{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td>"
-            f"<td>{p.added_at or '—'}</td></tr>"
+            f"""
+            <tr>
+                <td><a href='/proverb/{p.id}' style='color: #0066cc;'>{p.id}</a></td>
+                <td style='text-align: left;' title="{p.text}">{p.text[:120] + '...' if len(p.text) > 120 else p.text}</td>
+                <td>{p.added_at or '—'}</td>
+            </tr>
+            """
             for p in data
         )
 
@@ -458,6 +477,7 @@ def admin_page():
             }}
         </style>
     </head>
+
     <body>
         <p style="text-align: right;">
             <small>Привет, <strong>{session.get('username', 'Админ')}</strong> | 
@@ -482,6 +502,84 @@ def admin_page():
             <p>База данных: <strong>fedorbot.db</strong> | Время загрузки: {datetime.now().strftime('%H:%M:%S')}</p>
             <p>💡 Можно копировать текст. Активные модели помечены ✅</p>
         </div>
+
+    <!-- Модальное окно для просмотра промта -->
+    <div id="promptModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"
+        onclick="this.style.display='none';">
+        <div style="background: white; margin: 10% auto; padding: 20px; width: 80%; max-width: 800px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); position: relative;"
+            onclick="event.stopPropagation();">
+            <h3>📋 Полный текст промта</h3>
+            <pre id="promptText" style="white-space: pre-wrap; word-wrap: break-word; max-height: 50vh; overflow-y: auto; background: #f4f4f4; padding: 15px; border-radius: 5px;"></pre>
+            <button onclick="document.getElementById('promptModal').style.display='none';"
+                    style="margin-top: 10px; padding: 8px 16px; background: #555; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                Закрыть
+            </button>
+        </div>
+    </div>
+
+    <script>
+    function showPromptModal(id, text) {{
+        document.getElementById("promptText").textContent = text;
+        document.getElementById("promptModal").style.display = "block";
+    }}
+
+    function showEditProverbModal(id, text) {{
+        document.getElementById("editProverbId").value = id;
+        document.getElementById("editProverbText").value = text;
+        document.getElementById("editProverbModal").style.display = "block";
+    }}
+
+    function showEditPromptModal(id, text) {{
+        document.getElementById("editPromptId").value = id;
+        document.getElementById("editPromptText").value = text;
+        document.getElementById("editPromptModal").style.display = "block";
+    }}
+    </script>
+
+    <!-- Модальное окно для редактирования пословицы -->
+    <div id="editProverbModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"
+        onclick="this.style.display='none';">
+        <div style="background: white; margin: 10% auto; padding: 20px; width: 80%; max-width: 700px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); position: relative;"
+            onclick="event.stopPropagation();">
+            <h3>✏️ Редактировать пословицу</h3>
+            <form id="editProverbForm" method="post" action="/edit_proverb">
+                <input type="hidden" id="editProverbId" name="id" value="">
+                <textarea id="editProverbText" name="text" 
+                        style="width: 100%; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px;"
+                        required></textarea><br>
+                <button type="submit" style="margin-top: 10px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px;">
+                    Сохранить
+                </button>
+                <button type="button" onclick="document.getElementById('editProverbModal').style.display='none';"
+                        style="margin-top: 10px; margin-left: 10px; padding: 10px 20px; background: #999; color: white; border: none; border-radius: 5px;">
+                    Отмена
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для редактирования промта -->
+    <div id="editPromptModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"
+        onclick="this.style.display='none';">
+        <div style="background: white; margin: 10% auto; padding: 20px; width: 80%; max-width: 700px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); position: relative;"
+            onclick="event.stopPropagation();">
+            <h3>✏️ Редактировать промт</h3>
+            <form id="editPromptForm" method="post" action="/edit_prompt">
+                <input type="hidden" id="editPromptId" name="id" value="">
+                <textarea id="editPromptText" name="text" 
+                        style="width: 100%; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px;"
+                        required></textarea><br>
+                <button type="submit" style="margin-top: 10px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px;">
+                    Сохранить
+                </button>
+                <button type="button" onclick="document.getElementById('editPromptModal').style.display='none';"
+                        style="margin-top: 10px; margin-left: 10px; padding: 10px 20px; background: #999; color: white; border: none; border-radius: 5px;">
+                    Отмена
+                </button>
+            </form>
+        </div>
+    </div>    
+
     </body>
     </html>
     """
@@ -543,6 +641,45 @@ def view_proverb(proverb_id):
     </html>
     """
 
+@app.route("/edit_proverb", methods=["POST"])
+@login_required
+def edit_proverb():
+    try:
+        proverb_id = request.form.get("id")
+        new_text = request.form.get("text", "").strip()
+
+        if not proverb_id or not new_text:
+            return "<script>alert('❌ ID или текст не указаны'); window.history.back();</script>"
+
+        with engine.connect() as conn:
+            conn.execute(
+                sql_text("UPDATE proverbs SET text = :text WHERE id = :id"),
+                {"text": new_text, "id": proverb_id}
+            )
+            conn.commit()
+        return "<script>alert('✅ Пословица обновлена'); window.location.href='/admin?tab=proverbs';</script>"
+    except Exception as e:
+        return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
+
+@app.route("/edit_prompt", methods=["POST"])
+@login_required
+def edit_prompt():
+    try:
+        prompt_id = request.form.get("id")
+        new_text = request.form.get("text", "").strip()
+
+        if not prompt_id or not new_text:
+            return "<script>alert('❌ ID или текст не указаны'); window.history.back();</script>"
+
+        with engine.connect() as conn:
+            conn.execute(
+                sql_text("UPDATE prompts SET text = :text WHERE id = :id"),
+                {"text": new_text, "id": prompt_id}
+            )
+            conn.commit()
+        return "<script>alert('✅ Промт обновлён'); window.location.href='/admin?tab=prompts';</script>"
+    except Exception as e:
+        return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
 
 # --- Переключение модели ---
 @app.route("/toggle_model/<int:model_id>")

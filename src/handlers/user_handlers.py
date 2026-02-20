@@ -85,7 +85,7 @@ async def cmd_help(message: types.Message):
 • Добавление новых
 • Интерпретация ИИ
 """
-    await message.answer(help_text, parse_mode="Markdown")
+    await message.answer(help_text, parse_mode="MarkdownV2")
 
 # Удалён обработчик просмотра выбранной пословицу, так как кнопка больше не выводится
 

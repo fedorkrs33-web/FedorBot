@@ -9,6 +9,7 @@ BTN_ANALYZE_II = "Анализ ИИ"
 BTN_MODELS = "Модели"
 BTN_PROMPTS = "Промпты"
 BTN_BACK = "Назад"
+BTN_ADD_COMPARE_PROMPT = "➕ Добавить промпт сравнения"
 
 # --- ПОДМЕНЮ "ПОСЛОВИЦА" ---
 BTN_ADD_PROVERB = "Добавить"

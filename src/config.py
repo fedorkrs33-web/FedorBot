@@ -73,7 +73,7 @@ if not os.path.exists(DOTENV_PATH):
 
 # --- 3. Загружаем переменные окружения ---
 load_dotenv(dotenv_path=DOTENV_PATH, verbose=True)
-print(f"🔹 Загружен .env из: {DOTENV_PATH}")
+print(f"Loaded .env from: {DOTENV_PATH}")
 
 # --- 4. Читаем переменные ---
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -168,6 +168,6 @@ class Config:
         return None
 
 # --- 7. Успешный старт ---
-print(f"✅ Все переменные окружения загружены.")
-print(f"🤖 Бот запускается. Администраторы: {ADMIN_IDS}")
-print(f"🔗 DATABASE_URL: {DATABASE_URL.split('://')[0]}://... (скрыто)")
+print(f"All environment variables loaded.")
+print(f"Bot starting. Admins: {ADMIN_IDS}")
+print(f"DATABASE_URL: {DATABASE_URL.split('://')[0]}://... (hidden)")

@@ -8,7 +8,7 @@ from aiogram.fsm.state import StatesGroup, State
 from src.config import ADMIN_IDS
 from src.database import get_session, AsyncSessionLocal
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, update
 from sqlalchemy.orm import selectinload
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from src.keyboards import (
@@ -29,7 +29,7 @@ from src.buttons import (
     BTN_PROVERB, BTN_ANALYZE_II, BTN_MODELS, BTN_PROMPTS,
     BTN_ADD_PROVERB, BTN_DELETE_PROVERB,
     BTN_ADD_PROMPT, BTN_DELETE_PROMPT, BTN_LINK_PROMPT_TO_MODEL,
-    BTN_BACK
+    BTN_BACK, BTN_ADD_COMPARE_PROMPT
 )
 from src.utils import safe_send_message
 

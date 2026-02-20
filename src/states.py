@@ -7,4 +7,3 @@ class ProverbStates(StatesGroup):
 class PromptStates(StatesGroup):
     waiting_for_text = State()
     waiting_for_new_prompt = State()          # Для добавления промта
-    waiting_for_compare_text = State()        # Для добавления промта для сравнения интерпретаций

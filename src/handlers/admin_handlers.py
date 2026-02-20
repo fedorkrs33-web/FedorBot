@@ -29,7 +29,7 @@ from src.buttons import (
     BTN_PROVERB, BTN_ANALYZE_II, BTN_MODELS, BTN_PROMPTS,
     BTN_ADD_PROVERB, BTN_DELETE_PROVERB,
     BTN_ADD_PROMPT, BTN_DELETE_PROMPT, BTN_LINK_PROMPT_TO_MODEL,
-    BTN_BACK, BTN_ADD_COMPARE_PROMPT
+    BTN_BACK
 )
 from src.utils import safe_send_message
 
@@ -223,10 +223,6 @@ async def process_analyze_proverb(callback: types.CallbackQuery):
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Назад", callback_data="back_to_proverbs")]
         ])
-        if len(responses) > 1:
-            keyboard.inline_keyboard.insert(0, [
-                InlineKeyboardButton(text="Сравнить интерпретации", callback_data=f"compare_{proverb_id}")
-            ])
 
         await safe_send_message(
             message=callback,
@@ -243,184 +239,7 @@ async def process_analyze_proverb(callback: types.CallbackQuery):
             edit=True
         )
 
-# --- СРАВНЕНИЕ ИНТЕРПРЕТАЦИЙ ---
-@router.callback_query(F.data.startswith("compare_"))
-async def cmd_compare_interpretations(callback: types.CallbackQuery):
-    logger.info(f"🔁 Получен callback: {callback.data}")
-
-    try:
-        await callback.answer()
-        data = callback.data.strip()
-
-        if not data.startswith("compare_"):
-            logger.warning(f"❌ Неверный формат: {data}")
-            return
-
-        try:
-            proverb_id = int(data.split("_")[1])
-        except (IndexError, ValueError) as e:
-            logger.error(f"❌ Ошибка парсинга ID: {data} — {e}")
-            await safe_send_message(
-                message=callback,
-                text="❌ Неверный ID пословицы.",
-                edit=True
-            )
-            return
-
-        logger.info(f"🔍 Запрос на сравнение для пословицы {proverb_id}")
-
-        async with get_session() as session:
-            result = await session.execute(
-                select(Proverb).where(Proverb.id == proverb_id, Proverb.is_active == True)
-            )
-            proverb = result.scalar_one_or_none()
-
-            if not proverb:
-                await safe_send_message(
-                    message=callback,
-                    text="❌ Пословица не найдена.",
-                    edit=True
-                )
-                return
-
-            result = await session.execute(
-                select(AIResponse)
-                .join(Model)
-                .where(AIResponse.proverb_id == proverb_id)
-                .order_by(Model.name)
-            )
-            responses = result.scalars().all()
-
-            logger.info(f"📊 Найдено ответов: {len(responses)}")
-
-            if len(responses) < 2:
-                await safe_send_message(
-                    message=callback,
-                    text="⚠️ Нужно минимум 2 ответа для сравнения.",
-                    edit=True
-                )
-                return
-
-            # Сортируем и получаем ID моделей
-            sorted_model_ids = sorted({r.model_id for r in responses})
-            model_ids_str = ",".join(map(str, sorted_model_ids))
-
-            # Проверяем кэш
-            cache_result = await session.execute(
-                select(Comparison).where(
-                    Comparison.proverb_id == proverb_id,
-                    Comparison.model_ids == model_ids_str
-                )
-            )
-            cached = cache_result.scalar_one_or_none()
-
-            if cached:
-                    result_text = cached.result_text
-                    await safe_send_message(
-                        message=callback,
-                        text="📊 Найдено в кэше. Загружаю сравнение...",
-                        edit=True
-                    )
-            else:
-                # Читаем промпт для сравнения из БД
-                compare_prompt_result = await session.execute(
-                    select(Prompt).where(Prompt.is_active == True, Prompt.type == "compare_interpretations")
-                )
-                compare_prompt = compare_prompt_result.scalar_one_or_none()
-
-                if not compare_prompt:
-                    # Резервный вариант
-                    base_prompt = """
-Пословица: "{proverb}"
-
-Проанализируй и сравни следующие интерпретации. Выдели:
-1. Общие идеи
-2. Различия в подходе
-3. Стиль изложения
-4. Глубину анализа
-
-Сделай краткий, содержательный итоговый вывод.
-
-Интерпретации:
-"""
-                else:
-                    base_prompt = compare_prompt.text
-
-                # Подставляем пословицу
-                comparison_text = base_prompt.replace("{proverb}", proverb.text)
-
-                for resp in responses:
-                    name = resp.model.name if resp.model else "Неизвестно"
-                    content = resp.response[:600] + "..." if len(resp.response) > 600 else resp.response
-                    comparison_text += f"\n--- {name} ---\n{content}\n"
-
-                comparison_text += "\n\nСравни и сделай вывод."
-
-                await safe_send_message(
-                    message=callback,
-                    text="🔍 Сравниваю интерпретации... Подождите.",
-                    edit=True
-                )
-
-                network = Network()
-                model_data = {
-                    "name": "GigaChat",
-                    "provider": "gigachat",
-                    "api_url": "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
-                    "api_key_var": "GIGACHAT_CLIENT_ID",
-                    "model_name": "GigaChat"
-                }
-
-                try:
-                    result_text = await asyncio.wait_for(
-                        network.send_prompt_to_model(model_data, comparison_text),
-                        timeout=30.0
-                    )
-
-                    new_comparison = Comparison(
-                        proverb_id=proverb_id,
-                        result_text=result_text,
-                        model_ids=model_ids_str
-                    )
-                    session.add(new_comparison)
-                    await session.commit()
-
-                except asyncio.TimeoutError:
-                    await safe_send_message(
-                        message=callback,
-                        text="⏰ Время ожидания истекло при сравнении.",
-                        edit=True
-                    )
-                    return
-                except Exception as e:
-                    logging.error(f"Ошибка при генерации сравнения: {e}")
-                    await safe_send_message(
-                        message=callback,
-                        text="❌ Ошибка при сравнении.",
-                        edit=True
-                    )
-                    return
-
-            # Отправляем результат
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="Назад", callback_data=f"proverb_{proverb_id}")]
-            ])
-
-            await safe_send_message(
-                message=callback,
-                text=result_text,
-                reply_markup=keyboard,
-                edit=True
-            )
-
-    except Exception as e:
-        logging.error(f"Ошибка в cmd_compare_interpretations: {e}")
-        await safe_send_message(
-            message=callback,
-            text="❌ Произошла ошибка при сравнении.",
-            edit=True
-        )
-
+# --
 # Обработка кнопки "Модели"
 @router.message(F.text == BTN_MODELS)
 async def cmd_models_menu(message: types.Message):
@@ -536,30 +355,6 @@ async def cmd_delete_prompt(message: types.Message):
 
         kb = await get_prompts_list_keyboard(prompts, page=0)
         await message.answer("Выберите промпт для удаления:", reply_markup=kb)
-
-@router.message(F.text == BTN_ADD_COMPARE_PROMPT)
-async def cmd_add_compare_prompt(message: types.Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
-        return
-    await message.answer("Введите новый промпт для сравнения интерпретаций.\nИспользуйте `{proverb}` как плейсхолдер.")
-    await state.set_state(PromptStates.waiting_for_compare_text)
-
-@router.message(PromptStates.waiting_for_compare_text)
-async def process_compare_prompt(message: types.Message, state: FSMContext):
-    text = message.text.strip()
-    async with get_session() as session:
-        # Удаляем старый (или деактивируем)
-        await session.execute(
-            update(Prompt)
-            .where(Prompt.type == "compare_interpretations")
-            .values(is_active=False)
-        )
-        # Добавляем новый
-        prompt = Prompt(text=text, type="compare_interpretations", is_active=True)
-        session.add(prompt)
-        await session.commit()
-        await message.answer("✅ Новый промпт для сравнения установлен.")
-    await state.clear()
 
 # --- CALLBACK: Пагинация и удаление ---
 @router.callback_query(F.data.startswith("prompt_page_"))

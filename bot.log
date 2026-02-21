@@ -29,3 +29,253 @@ WHERE prompts.id IN (?, ?, ?, ?, ?)]
 2026-02-21 22:53:12,613 [ERROR] aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
 2026-02-21 22:53:12,636 [WARNING] aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8539147632)
 2026-02-21 22:53:12,919 [INFO] aiogram.dispatcher: Polling stopped for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-21 22:55:18,307 [INFO] root: ℹ️ Уже существует 5 моделей.
+2026-02-21 22:55:19,433 [INFO] aiogram.dispatcher: Start polling
+2026-02-21 22:55:20,132 [INFO] aiogram.dispatcher: Run polling for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-21 22:55:35,180 [INFO] aiogram.event: Update id=598198803 is handled. Duration 3830 ms by bot id=8539147632
+2026-02-21 22:55:40,657 [INFO] aiogram.event: Update id=598198804 is handled. Duration 1123 ms by bot id=8539147632
+2026-02-21 22:55:44,462 [INFO] aiogram.event: Update id=598198805 is handled. Duration 1605 ms by bot id=8539147632
+2026-02-21 22:55:56,436 [INFO] aiogram.event: Update id=598198806 is handled. Duration 1875 ms by bot id=8539147632
+2026-02-21 22:56:00,932 [INFO] aiogram.event: Update id=598198807 is handled. Duration 1385 ms by bot id=8539147632
+2026-02-21 22:56:06,989 [INFO] aiogram.event: Update id=598198808 is handled. Duration 823 ms by bot id=8539147632
+2026-02-21 22:56:12,444 [INFO] src.network: 📤 Отправляю промт в DeepSeek (provider: Polza)...
+2026-02-21 22:56:24,516 [INFO] src.network: ✅ Ответ получен
+2026-02-21 22:56:24,522 [INFO] src.network: 📤 Отправляю промт в Anthropic (provider: Polza)...
+2026-02-21 22:56:29,797 [INFO] src.network: ✅ Ответ получен
+2026-02-21 22:56:29,800 [INFO] src.network: 📤 Отправляю промт в GigaChat (provider: gigachat)...
+2026-02-21 22:56:34,443 [INFO] src.network: ✅ Ответ от GigaChat получен
+2026-02-21 22:56:34,448 [INFO] src.network: 📤 Отправляю промт в Yandex GPT (provider: yandex)...
+2026-02-21 22:56:35,675 [INFO] src.config: ✅ Новый IAM-токен получен и закэширован
+2026-02-21 22:56:35,676 [INFO] src.network: 🌐 Отправляю запрос в Yandex GPT (folder: b1gdvfoahsm768t288kn)
+2026-02-21 22:56:37,932 [INFO] src.network: ✅ Ответ от Yandex GPT получен
+2026-02-21 22:56:37,936 [INFO] src.network: 📤 Отправляю промт в Grok (provider: Polza)...
+2026-02-21 22:56:53,617 [INFO] src.network: ✅ Ответ получен
+2026-02-21 22:57:01,237 [INFO] aiogram.event: Update id=598198809 is handled. Duration 49749 ms by bot id=8539147632
+2026-02-21 23:03:49,084 [INFO] aiogram.dispatcher: Polling stopped
+2026-02-21 23:03:49,089 [ERROR] aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-02-21 23:03:49,097 [WARNING] aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8539147632)
+2026-02-21 23:03:49,816 [INFO] aiogram.dispatcher: Polling stopped for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-21 23:07:31,647 [INFO] root: ℹ️ Уже существует 5 моделей.
+2026-02-21 23:07:32,513 [INFO] aiogram.dispatcher: Start polling
+2026-02-21 23:07:33,421 [INFO] aiogram.dispatcher: Run polling for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-21 23:07:52,652 [INFO] aiogram.event: Update id=598198810 is handled. Duration 1593 ms by bot id=8539147632
+2026-02-21 23:07:58,479 [INFO] aiogram.event: Update id=598198811 is handled. Duration 701 ms by bot id=8539147632
+2026-02-21 23:08:03,412 [INFO] aiogram.event: Update id=598198812 is handled. Duration 525 ms by bot id=8539147632
+2026-02-21 23:08:06,954 [INFO] aiogram.event: Update id=598198813 is handled. Duration 1980 ms by bot id=8539147632
+2026-02-21 23:08:09,893 [INFO] aiogram.event: Update id=598198814 is handled. Duration 1427 ms by bot id=8539147632
+2026-02-21 23:08:15,499 [INFO] aiogram.event: Update id=598198815 is handled. Duration 1691 ms by bot id=8539147632
+2026-02-21 23:08:19,346 [INFO] src.network: 📤 Отправляю промт в DeepSeek (provider: Polza)...
+2026-02-21 23:08:31,202 [INFO] src.network: ✅ Ответ получен
+2026-02-21 23:08:31,206 [INFO] src.network: 📤 Отправляю промт в Anthropic (provider: Polza)...
+2026-02-21 23:08:38,331 [INFO] src.network: ✅ Ответ получен
+2026-02-21 23:08:38,336 [INFO] src.network: 📤 Отправляю промт в GigaChat (provider: gigachat)...
+2026-02-21 23:08:42,866 [INFO] src.network: ✅ Ответ от GigaChat получен
+2026-02-21 23:08:42,871 [INFO] src.network: 📤 Отправляю промт в Yandex GPT (provider: yandex)...
+2026-02-21 23:08:43,995 [INFO] src.config: ✅ Новый IAM-токен получен и закэширован
+2026-02-21 23:08:43,995 [INFO] src.network: 🌐 Отправляю запрос в Yandex GPT (folder: b1gdvfoahsm768t288kn)
+2026-02-21 23:08:46,281 [INFO] src.network: ✅ Ответ от Yandex GPT получен
+2026-02-21 23:08:46,285 [INFO] src.network: 📤 Отправляю промт в Grok (provider: Polza)...
+2026-02-21 23:09:03,113 [INFO] src.network: ✅ Ответ получен
+2026-02-21 23:09:09,167 [INFO] aiogram.event: Update id=598198816 is handled. Duration 50259 ms by bot id=8539147632
+2026-02-21 23:09:37,830 [INFO] aiogram.event: Update id=598198817 is handled. Duration 424 ms by bot id=8539147632
+2026-02-21 23:09:42,449 [INFO] aiogram.event: Update id=598198818 is handled. Duration 806 ms by bot id=8539147632
+2026-02-21 23:09:46,541 [INFO] aiogram.event: Update id=598198819 is handled. Duration 2086 ms by bot id=8539147632
+2026-02-21 23:09:48,778 [INFO] aiogram.event: Update id=598198820 is handled. Duration 1521 ms by bot id=8539147632
+2026-02-21 23:09:51,935 [INFO] aiogram.event: Update id=598198821 is handled. Duration 1685 ms by bot id=8539147632
+2026-02-21 23:09:54,473 [INFO] aiogram.event: Update id=598198822 is handled. Duration 1529 ms by bot id=8539147632
+2026-02-21 23:09:59,513 [INFO] aiogram.event: Update id=598198823 is handled. Duration 1235 ms by bot id=8539147632
+2026-02-21 23:10:09,032 [INFO] src.network: 📤 Отправляю промт в DeepSeek (provider: Polza)...
+2026-02-21 23:10:14,959 [INFO] aiogram.event: Update id=598198824 is handled. Duration 9348 ms by bot id=8539147632
+2026-02-21 23:10:21,110 [INFO] src.network: ✅ Ответ получен
+2026-02-21 23:10:21,115 [INFO] src.network: 📤 Отправляю промт в Anthropic (provider: Polza)...
+2026-02-21 23:10:27,696 [INFO] src.network: ✅ Ответ получен
+2026-02-21 23:10:27,700 [INFO] src.network: 📤 Отправляю промт в GigaChat (provider: gigachat)...
+2026-02-21 23:10:31,919 [INFO] src.network: ✅ Ответ от GigaChat получен
+2026-02-21 23:10:31,924 [INFO] src.network: 📤 Отправляю промт в Yandex GPT (provider: yandex)...
+2026-02-21 23:10:31,926 [INFO] src.network: 🌐 Отправляю запрос в Yandex GPT (folder: b1gdvfoahsm768t288kn)
+2026-02-21 23:10:33,423 [INFO] src.network: ✅ Ответ от Yandex GPT получен
+2026-02-21 23:10:33,430 [INFO] src.network: 📤 Отправляю промт в Grok (provider: Polza)...
+2026-02-21 23:10:52,373 [INFO] src.network: ✅ Ответ получен
+2026-02-21 23:11:00,760 [INFO] aiogram.event: Update id=598198825 is handled. Duration 52459 ms by bot id=8539147632
+2026-02-21 23:13:09,556 [INFO] aiogram.event: Update id=598198826 is handled. Duration 1131 ms by bot id=8539147632
+2026-02-21 23:13:21,206 [INFO] aiogram.event: Update id=598198828 is handled. Duration 1775 ms by bot id=8539147632
+2026-02-21 23:13:23,274 [INFO] aiogram.event: Update id=598198827 is not handled. Duration 8702 ms by bot id=8539147632
+2026-02-21 23:13:23,282 [ERROR] aiogram.event: Cause exception while process update id=598198827 by bot id=8539147632
+TelegramBadRequest: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+Traceback (most recent call last):
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 320, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 164, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 71, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 71, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\src\handlers\proverb_handlers.py", line 65, in callback_page
+    await callback.message.edit_text(text, reply_markup=kb)
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\methods\base.py", line 82, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\client\bot.py", line 487, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\client\session\base.py", line 259, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\client\session\aiohttp.py", line 177, in make_request
+    response = self.check_response(
+        bot=bot,
+    ...<2 lines>...
+        content=raw_result,
+    )
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\client\session\base.py", line 121, in check_response
+    raise TelegramBadRequest(method=method, message=description)
+aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2026-02-21 23:13:24,314 [INFO] aiogram.event: Update id=598198829 is handled. Duration 1595 ms by bot id=8539147632
+2026-02-21 23:13:34,019 [INFO] aiogram.event: Update id=598198831 is handled. Duration 4618 ms by bot id=8539147632
+2026-02-21 23:13:36,609 [INFO] aiogram.event: Update id=598198832 is handled. Duration 305 ms by bot id=8539147632
+2026-02-21 23:13:42,851 [INFO] aiogram.event: Update id=598198833 is handled. Duration 704 ms by bot id=8539147632
+2026-02-21 23:13:46,483 [INFO] aiogram.event: Update id=598198834 is handled. Duration 1193 ms by bot id=8539147632
+2026-02-21 23:13:52,517 [INFO] aiogram.event: Update id=598198835 is handled. Duration 498 ms by bot id=8539147632
+2026-02-21 23:13:55,112 [INFO] src.network: 📤 Отправляю промт в DeepSeek (provider: Polza)...
+2026-02-21 23:14:08,557 [INFO] aiogram.event: Update id=598198830 is not handled. Duration 41585 ms by bot id=8539147632
+2026-02-21 23:14:08,559 [ERROR] aiogram.event: Cause exception while process update id=598198830 by bot id=8539147632
+TelegramBadRequest: Telegram server says - Bad Request: query is too old and response timeout expired or query ID is invalid
+Traceback (most recent call last):
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 320, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 164, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 71, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py", line 71, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\src\handlers\proverb_handlers.py", line 66, in callback_page
+    await callback.answer()
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\methods\base.py", line 82, in emit
+    return await bot(self)
+           ^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\client\bot.py", line 487, in __call__
+    return await self.session(self, method, timeout=request_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\client\session\base.py", line 259, in __call__
+    return cast(TelegramType, await middleware(bot, method))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\client\session\aiohttp.py", line 177, in make_request
+    response = self.check_response(
+        bot=bot,
+    ...<2 lines>...
+        content=raw_result,
+    )
+  File "C:\Work\FedorBot\.venv\Lib\site-packages\aiogram\client\session\base.py", line 121, in check_response
+    raise TelegramBadRequest(method=method, message=description)
+aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: query is too old and response timeout expired or query ID is invalid
+2026-02-21 23:14:09,313 [INFO] src.network: ✅ Ответ получен
+2026-02-21 23:14:09,322 [INFO] src.network: 📤 Отправляю промт в Anthropic (provider: Polza)...
+2026-02-21 23:14:14,319 [INFO] src.network: ✅ Ответ получен
+2026-02-21 23:14:14,322 [INFO] src.network: 📤 Отправляю промт в GigaChat (provider: gigachat)...
+2026-02-21 23:14:17,948 [INFO] src.network: ✅ Ответ от GigaChat получен
+2026-02-21 23:14:17,952 [INFO] src.network: 📤 Отправляю промт в Yandex GPT (provider: yandex)...
+2026-02-21 23:14:17,953 [INFO] src.network: 🌐 Отправляю запрос в Yandex GPT (folder: b1gdvfoahsm768t288kn)
+2026-02-21 23:14:19,922 [INFO] src.network: ✅ Ответ от Yandex GPT получен
+2026-02-21 23:14:19,925 [INFO] src.network: 📤 Отправляю промт в Grok (provider: Polza)...
+2026-02-21 23:14:36,808 [INFO] src.network: ✅ Ответ получен
+2026-02-21 23:14:44,856 [INFO] aiogram.event: Update id=598198836 is handled. Duration 50389 ms by bot id=8539147632

@@ -1,5 +1,4 @@
 import os
-import sqlite3
 from flask import Flask, request, redirect, session, render_template_string
 from dotenv import load_dotenv
 from flask_restx import Api, Resource, fields
@@ -13,12 +12,16 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 if not ADMIN_PASSWORD:
     raise RuntimeError("❌ Не задан ADMIN_PASSWORD в .env")
 
-# --- Настройки ---
-DATABASE_PATH = "fedorbot.db"
-if not os.path.exists(DATABASE_PATH):
-    raise FileNotFoundError(f"❌ База данных не найдена: {DATABASE_PATH}")
+# --- Настройки БД (локально: SQLite; на Vercel/продакшене: задайте DATABASE_URL в env) ---
+if os.getenv("DATABASE_URL"):
+    DATABASE_PATH = None
+    DATABASE_URL = os.getenv("DATABASE_URL")
+else:
+    DATABASE_PATH = "fedorbot.db"
+    if not os.path.exists(DATABASE_PATH):
+        raise FileNotFoundError(f"❌ База данных не найдена: {DATABASE_PATH}")
+    DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
-DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 engine = create_engine(DATABASE_URL, echo=False)
 
 # --- Flask & API ---
@@ -101,14 +104,12 @@ def login():
 
     # Проверяем, есть ли пользователь в БД и он админ
     try:
-        with sqlite3.connect(DATABASE_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT user_id, username, first_name 
-                FROM users 
-                WHERE first_name = ? AND is_admin = 1
-            """, (username,))
-            user = cursor.fetchone()
+        with engine.connect() as conn:
+            result = conn.execute(
+                sql_text("SELECT user_id, username, first_name FROM users WHERE first_name = :name AND is_admin = 1"),
+                {"name": username},
+            )
+            user = result.fetchone()
 
         if not user:
             return """

@@ -5,6 +5,7 @@ from flask_restx import Api, Resource, fields
 from sqlalchemy import create_engine
 from sqlalchemy import text as sql_text
 from datetime import datetime
+from version import __version__
 
 load_dotenv()
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
@@ -32,7 +33,7 @@ app.config["RESTX_MASK_SWAGGER"] = False
 api = Api(
     app,
     title="FedorBot Admin API",
-    version="1.0",
+    version=__version__,
     description="Админ-панель для управления ботом",
     doc="/swagger/"
 )
@@ -217,10 +218,10 @@ class ModelList(Resource):
 @app.route("/")
 @login_required
 def index():
-    return """
+    return f"""
     <html>
     <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-        <h1>🔐 FedorBot Web Admin</h1>
+        <h1>🔐 FedorBot Web Admin v{__version__}</h1>
         <p>Интерфейс управления Telegram-ботом</p>
         <a href="/admin" style="font-size: 18px; margin: 10px; padding: 15px; background: #0066cc; color: white; text-decoration: none; border-radius: 8px;">📊 Перейти в админку</a><br>
         <a href="/swagger" style="color: #555;">📄 API (Swagger)</a>
@@ -452,7 +453,7 @@ def admin_page():
     return f"""
     <html>
     <head>
-        <title>Админ-панель FedorBot</title>
+        <title>Админ-панель FedorBot v{__version__}</title>
         <style>
             body {{ font-family: sans-serif; padding: 20px; background: #f7f7f7; }}
             h1, h2, h3 {{ color: #333; }}
@@ -484,7 +485,7 @@ def admin_page():
             <small>Привет, <strong>{session.get('username', 'Админ')}</strong> | 
             <a href="/logout" style="color: #f44336;">Выход</a></small>
         </p>
-        <h1>🔐 Админ-панель FedorBot</h1>
+        <h1>🔐 Админ-панель FedorBot v{__version__}</h1>
         <p>Управление данными бота через веб-интерфейс.</p>
         <a href="/swagger" style="color: #0066cc; font-size: 16px;">📄 API (Swagger)</a>
 
@@ -500,7 +501,7 @@ def admin_page():
         {('<table><thead><tr>' + ''.join(f'<th>{col}</th>' for col in columns) + '</tr></thead><tbody>' + rows + '</tbody></table>') if columns else rows}
 
         <div class="footer">
-            <p>База данных: <strong>fedorbot.db</strong> | Время загрузки: {datetime.now().strftime('%H:%M:%S')}</p>
+            <p>Версия: <strong>{__version__}</strong> | База данных: <strong>fedorbot.db</strong> | Время загрузки: {datetime.now().strftime('%H:%M:%S')}</p>
             <p>💡 Можно копировать текст. Активные модели помечены ✅</p>
         </div>
 
@@ -808,7 +809,7 @@ def delete_prompt(prompt_id):
 # --- Запуск ---
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("🌐 Веб-интерфейс запущен!")
+    print(f"🌐 Веб-интерфейс FedorBot v{__version__} запущен!")
     print("🏠 Откройте: http://localhost:5000")
     print("📊 Админка: /admin")
     print("📘 API: /swagger")

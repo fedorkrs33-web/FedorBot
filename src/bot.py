@@ -2,6 +2,7 @@ from aiogram import Bot, Dispatcher
 from src.config import BOT_TOKEN
 from src.handlers import user_handlers, admin_handlers, proverb_handlers
 from src.database import init_db
+from version import __version__
 import asyncio
 import logging
 import sys
@@ -16,7 +17,9 @@ logging.basicConfig(
     ],
 )
 
+
 async def main():
+    logging.info("Запуск FedorBot v%s", __version__)
     await init_db()
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
@@ -25,7 +28,7 @@ async def main():
     dp.include_router(admin_handlers.router)
     dp.include_router(proverb_handlers.router)
 
-    print("Бот запущен...")
+    print(f"Бот запущен... (v{__version__})")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

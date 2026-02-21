@@ -1,0 +1,31 @@
+2026-02-21 22:01:05,522 [INFO] root: ℹ️ Уже существует 5 моделей.
+2026-02-21 22:01:06,426 [INFO] aiogram.dispatcher: Start polling
+2026-02-21 22:01:07,092 [INFO] aiogram.dispatcher: Run polling for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-21 22:45:11,972 [INFO] aiogram.event: Update id=598198785 is handled. Duration 1295 ms by bot id=8539147632
+2026-02-21 22:45:23,867 [INFO] aiogram.event: Update id=598198786 is handled. Duration 1822 ms by bot id=8539147632
+2026-02-21 22:45:30,903 [INFO] aiogram.event: Update id=598198787 is handled. Duration 1116 ms by bot id=8539147632
+2026-02-21 22:45:36,377 [INFO] aiogram.event: Update id=598198788 is handled. Duration 699 ms by bot id=8539147632
+2026-02-21 22:45:44,688 [INFO] aiogram.event: Update id=598198789 is handled. Duration 2208 ms by bot id=8539147632
+2026-02-21 22:45:48,305 [INFO] aiogram.event: Update id=598198790 is handled. Duration 1163 ms by bot id=8539147632
+2026-02-21 22:45:58,995 [ERROR] root: Ошибка при анализе пословицы: (sqlite3.OperationalError) no such column: prompts.type
+[SQL: SELECT prompts.id AS prompts_id, prompts.text AS prompts_text, prompts.created_at AS prompts_created_at, prompts.updated_at AS prompts_updated_at, prompts.is_active AS prompts_is_active, prompts.created_by AS prompts_created_by, prompts.type AS prompts_type 
+FROM prompts 
+WHERE prompts.id IN (?, ?, ?, ?, ?)]
+[parameters: (1, 2, 3, 4, 5)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-02-21 22:45:59,148 [INFO] aiogram.event: Update id=598198791 is handled. Duration 1491 ms by bot id=8539147632
+2026-02-21 22:46:20,196 [INFO] aiogram.event: Update id=598198792 is handled. Duration 159 ms by bot id=8539147632
+2026-02-21 22:46:28,850 [INFO] aiogram.event: Update id=598198793 is handled. Duration 637 ms by bot id=8539147632
+2026-02-21 22:46:31,368 [INFO] aiogram.event: Update id=598198794 is handled. Duration 155 ms by bot id=8539147632
+2026-02-21 22:46:39,029 [INFO] aiogram.event: Update id=598198795 is handled. Duration 1785 ms by bot id=8539147632
+2026-02-21 22:46:48,770 [INFO] aiogram.event: Update id=598198796 is handled. Duration 1084 ms by bot id=8539147632
+2026-02-21 22:47:08,712 [INFO] aiogram.event: Update id=598198797 is handled. Duration 1624 ms by bot id=8539147632
+2026-02-21 22:47:14,109 [INFO] aiogram.event: Update id=598198798 is handled. Duration 1205 ms by bot id=8539147632
+2026-02-21 22:47:20,020 [INFO] aiogram.event: Update id=598198799 is handled. Duration 2116 ms by bot id=8539147632
+2026-02-21 22:47:58,662 [INFO] aiogram.event: Update id=598198800 is handled. Duration 414 ms by bot id=8539147632
+2026-02-21 22:48:04,251 [INFO] aiogram.event: Update id=598198801 is handled. Duration 2869 ms by bot id=8539147632
+2026-02-21 22:49:49,516 [INFO] aiogram.event: Update id=598198802 is handled. Duration 885 ms by bot id=8539147632
+2026-02-21 22:53:12,607 [INFO] aiogram.dispatcher: Polling stopped
+2026-02-21 22:53:12,613 [ERROR] aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-02-21 22:53:12,636 [WARNING] aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8539147632)
+2026-02-21 22:53:12,919 [INFO] aiogram.dispatcher: Polling stopped for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'

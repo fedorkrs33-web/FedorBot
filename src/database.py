@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from src.config import DATABASE_URL
 from src.initial_data import insert_initial_models
 from src.models import Model
@@ -40,11 +40,20 @@ async def get_session():
             await session.close()
 
 
+def _add_prompts_type_column_if_missing(sync_conn):
+    """Добавляет колонку prompts.type, если её нет (миграция для старых БД)."""
+    try:
+        sync_conn.execute(text("ALTER TABLE prompts ADD COLUMN type VARCHAR DEFAULT 'standard'"))
+    except Exception:
+        pass  # колонка уже есть или другая ошибка
+
+
 # === Инициализация БД ===
 async def init_db():
     async with engine.begin() as conn:
         from src.models import Base
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_add_prompts_type_column_if_missing)
 
     async with get_session() as session:
         try:

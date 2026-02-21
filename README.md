@@ -123,8 +123,10 @@ YANDEX_FOLDER_ID=ваш_folder_id
 
 ### 5. Запуск бота
 
-```bash
-python src/bot.py
+Из **корня проекта** (чтобы находился пакет `src`):
+
+```powershell
+python -m src.bot
 ```
 
 ## 🧩 Команды бота

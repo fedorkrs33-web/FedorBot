@@ -283,3 +283,7 @@ aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: query
 2026-02-21 23:56:19,862 [ERROR] aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
 2026-02-21 23:56:20,427 [WARNING] aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8539147632)
 2026-02-21 23:56:22,669 [INFO] aiogram.dispatcher: Polling stopped for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-22 00:35:25,893 [INFO] root: Запуск FedorBot v1.0.0
+2026-02-22 00:35:26,009 [INFO] root: ℹ️ Уже существует 5 моделей.
+2026-02-22 00:35:29,281 [INFO] aiogram.dispatcher: Start polling
+2026-02-22 00:35:30,151 [INFO] aiogram.dispatcher: Run polling for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'

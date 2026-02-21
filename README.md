@@ -174,6 +174,19 @@ fedorbot/
 └── README.md                 # Документация
 ```
 
+## 📦 Сборка установщика (Inno Setup)
+
+1. Установите [Inno Setup 6](https://jrsoftware.org/isinfo.php).
+2. Обновите версию из `version.py` и сгенерируйте define для установщика:
+   ```powershell
+   python scripts/get_install_version.py
+   ```
+3. Соберите установщик (из корня проекта):
+   ```powershell
+   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\fedorbot.iss
+   ```
+   Готовый файл: `installer\output\FedorBot-Setup-<версия>.exe`.
+
 ## 📄 Лицензия
 
 Проект распространяется под лицензией MIT.

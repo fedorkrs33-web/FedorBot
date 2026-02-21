@@ -14,11 +14,18 @@ router = Router()
 async def cmd_start(message: types.Message):
     print("🔧 /start: начало обработки")
     async with get_session() as session:
+        print("🔍 Получаем или создаём пользователя")
+        print(f"🆔 Пользователь: {message.from_user.id}")
+        print(f"👤 Имя: {message.from_user.first_name}")
+        print(f"👥 Имя пользователя: {message.from_user.username}")
+        print("🔄 Обновляем/добавляем пользователя в БД")
+        print("📝 Отправляем приветственное сообщение")
+        print("🔍 Отправляем интерактивную таблицу пословиц")
+        print("📝 Отправляем основное меню")
         try:
-            user_id = str(message.from_user.id)
+            user_id = message.from_user.id
             username = message.from_user.username
-            first_name = message.from_user.first_name or "Клиент"
-
+            first_name = message.from_user.first_name or "Аноним"
             # 🔍 Ищем пользователя по user_id
             result = await session.execute(
                 select(User).where(User.user_id == user_id)
@@ -31,7 +38,7 @@ async def cmd_start(message: types.Message):
                     user_id=user_id,
                     username=username,
                     first_name=first_name,
-                    is_admin=(user_id in map(str, ADMIN_IDS))
+                    is_admin=(user_id in ADMIN_IDS)
                 )
                 session.add(new_user)
                 await session.commit()
@@ -46,11 +53,11 @@ async def cmd_start(message: types.Message):
                 if user.first_name != first_name:
                     user.first_name = first_name
                     updated = True
-                current_is_admin = user_id in map(str, ADMIN_IDS)
-                if user.is_admin != current_is_admin:
-                    user.is_admin = current_is_admin
+                if user.is_admin != (user_id in ADMIN_IDS):
+                    user.is_admin = (user_id in ADMIN_IDS)
                     updated = True
 
+                # 🔄 Обновляем данные пользователя, если они изменились
                 if updated:
                     await session.commit()
                     await session.refresh(user)

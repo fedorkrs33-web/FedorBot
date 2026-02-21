@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 
 Base = declarative_base()
 
@@ -11,25 +11,25 @@ class Message(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     message_id = Column(Integer)
-    chat_id = Column(String)
+    chat_id = Column(String, index=True)
     username = Column(String, nullable=True)
     first_name = Column(String, nullable=True)
     content = Column(Text)
-    from_bot = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    from_bot = Column(Boolean, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class User(Base):
     __tablename__ = 'users'
     
-    user_id = Column(String, primary_key=True, index=True)
+    user_id = Column(Integer, primary_key=True, index=True)
     username = Column(String, nullable=True)
     first_name = Column(String, nullable=True)
     is_admin = Column(Boolean, default=False)
     is_blocked = Column(Boolean, default=False)
-    blocked_by = Column(String, nullable=True)
+    blocked_by = Column(Integer, nullable=True)
     blocked_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     prompts = relationship("Prompt", back_populates="author", cascade="all, delete-orphan")
 
 class Model(Base):
@@ -42,8 +42,8 @@ class Model(Base):
     api_key_var = Column(String(100), nullable=False)
     api_url = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # 🔗 Связь с промтом
     prompt_id = Column(Integer, ForeignKey('prompts.id'), nullable=True)  # может быть NULL
@@ -56,10 +56,10 @@ class Prompt(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     text = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)
-    created_by = Column(String, ForeignKey('users.user_id'), nullable=True)
+    created_by = Column(Integer, ForeignKey('users.user_id'), nullable=True)
     type = Column(String, default="standard")
 
     # Связь с пользователем
@@ -73,7 +73,7 @@ class Proverb(Base):
     text = Column(Text, nullable=False)
     added_by = Column(String)
     added_at = Column(DateTime, default=datetime.utcnow)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True, index=True)
 
     ai_interpretations = relationship("AIResponse", back_populates="proverb", cascade="all, delete-orphan")
     # comparisons будет добавлено ниже
@@ -83,11 +83,11 @@ class AIResponse(Base):
     __tablename__ = 'ai_responses'
     
     id = Column(Integer, primary_key=True, index=True)
-    proverb_id = Column(Integer, ForeignKey('proverbs.id'), nullable=False)
-    model_id = Column(Integer, ForeignKey('models.id'), nullable=False)
+    proverb_id = Column(Integer, ForeignKey('proverbs.id'), nullable=False, index=True)
+    model_id = Column(Integer, ForeignKey('models.id'), nullable=False, index=True)
     prompt = Column(Text, nullable=False)
     response = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     processed_at = Column(DateTime, default=datetime.utcnow)
     is_cached = Column(Boolean, default=False)
     usage_tokens = Column(Integer, default=0)
@@ -102,8 +102,8 @@ class Comparison(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     proverb_id = Column(Integer, ForeignKey('proverbs.id'), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     result_text = Column(Text, nullable=False)
     model_ids = Column(String, nullable=False)  # например: "1,3,5"
     is_cached = Column(Boolean, default=True)

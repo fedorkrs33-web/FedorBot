@@ -13,8 +13,8 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 if not ADMIN_PASSWORD:
     raise RuntimeError("❌ Не задан ADMIN_PASSWORD в .env")
 
-# --- Настройки ---
-DATABASE_PATH = "fedorbot.db"
+# --- Настройки (тот же файл, что и у бота — задаётся через DATABASE_PATH в .env) ---
+DATABASE_PATH = os.getenv("DATABASE_PATH", "fedorbot.db")
 if not os.path.exists(DATABASE_PATH):
     raise FileNotFoundError(f"❌ База данных не найдена: {DATABASE_PATH}")
 

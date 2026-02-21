@@ -19,8 +19,7 @@ TELEGRAM_BOT_TOKEN=ваш_токен_бота
 # 👤 Администраторы (через запятую)
 ADMIN_IDS=123456789,987654321
 
-# 🗄 База данных (один файл для бота и веб-админки)
-DATABASE_PATH=fedorbot.db
+# 🗄 База данных (по умолчанию SQLite)
 DATABASE_URL=sqlite+aiosqlite:///./fedorbot.db
 
 # 🔐 PolzaAI API
@@ -86,8 +85,7 @@ if admin_ids_str:
     except ValueError as e:
         print(f"❌ Ошибка парсинга ADMIN_IDS: {e}")
 
-DATABASE_PATH = os.getenv("DATABASE_PATH", "fedorbot.db")
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///./{DATABASE_PATH}")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./fedorbot.db")
 
 # --- 5. Список критических ключей ---
 REQUIRED_KEYS = [

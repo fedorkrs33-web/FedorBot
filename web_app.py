@@ -13,8 +13,8 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 if not ADMIN_PASSWORD:
     raise RuntimeError("❌ Не задан ADMIN_PASSWORD в .env")
 
-# --- Настройки (тот же файл, что и у бота — задаётся через DATABASE_PATH в .env) ---
-DATABASE_PATH = os.getenv("DATABASE_PATH", "fedorbot.db")
+# --- Настройки ---
+DATABASE_PATH = "fedorbot.db"
 if not os.path.exists(DATABASE_PATH):
     raise FileNotFoundError(f"❌ База данных не найдена: {DATABASE_PATH}")
 
@@ -696,7 +696,7 @@ def toggle_model(model_id):
 
             new_status = 0 if current.is_active else 1
             conn.execute(
-               sql_text( "UPDATE models SET is_active = :status WHERE id = :id"),
+               sql_text("UPDATE models SET is_active = :status WHERE id = :id"),
                 {"status": new_status, "id": model_id}
             )
             conn.commit()
@@ -747,7 +747,7 @@ def add_prompt():
             conn.execute(
                 sql_text("""
                     INSERT INTO prompts (text, is_active, created_by, created_at)
-                    VALUES (:text, 1, 'web_admin', datetime('now'))
+                    VALUES (:text, 1, NULL, datetime('now'))
                 """),
                 {"text": prompt_text}
             )
@@ -795,7 +795,7 @@ def delete_prompt(prompt_id):
                 return "<script>alert('❌ Промт не найден'); window.history.back();</script>"
 
             conn.execute(
-              sql_text(  "DELETE FROM prompts WHERE id = :id"),
+              sql_text("DELETE FROM prompts WHERE id = :id"),
                 {"id": prompt_id}
             )
             conn.commit()

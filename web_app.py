@@ -339,6 +339,49 @@ def admin_page():
             for m in data
         )
 
+    # --- Вкладка "Пользователи" ---
+    elif tab == "users":
+        columns = ["ID", "Юзернейм", "Имя", "Админ", "Статус", "Дата регистрации", "Действия"]
+        
+        # Поиск по username или first_name
+        search_filter = f"%{search}%"
+        with engine.connect() as conn:
+            query = """
+                SELECT user_id, username, first_name, is_admin, is_blocked, blocked_at, created_at 
+                FROM users 
+                WHERE (:search IS NULL OR username LIKE :search OR first_name LIKE :search)
+                ORDER BY is_admin DESC, created_at DESC
+            """
+            result = conn.execute(sql_text(query), {"search": search_filter if search else None})
+            users = result.fetchall()
+
+        rows = "".join(
+            f"""
+            <tr>
+                <td>{u.user_id}</td>
+                <td>@{u.username or '—'}</td>
+                <td>{u.first_name or '—'}</td>
+                <td>{'✅' if u.is_admin else '❌'}</td>
+                <td>{'🔴 Заблокирован' if u.is_blocked else '🟢 Активен'}</td>
+                <td>{datetime.fromisoformat(u.created_at).strftime('%Y-%m-%d %H:%M') if u.created_at else '—'}</td>
+                <td>
+                    {'<form method="post" action="/unblock_user" style="display:inline;">'
+                    f'<input type="hidden" name="user_id" value="{u.user_id}">'
+                    f'<button type="submit" style="padding:5px 10px; background:#8bc34a; color:white; border:none; border-radius:3px; margin-right:5px;">Разблокировать</button>'
+                    '</form>' if u.is_blocked else
+                    '<form method="post" action="/block_user" style="display:inline;">'
+                    f'<input type="hidden" name="user_id" value="{u.user_id}">'
+                    f'<button type="submit" style="padding:5px 10px; background:#f44336; color:white; border:none; border-radius:3px; margin-right:5px;">Заблокировать</button>'
+                    '</form>'}
+                    {'<form method="post" action="/make_admin" style="display:inline;">'
+                    f'<input type="hidden" name="user_id" value="{u.user_id}">'
+                    f'<button type="submit" style="padding:5px 10px; background:#ff9800; color:white; border:none; border-radius:3px;">{'Снять админа' if u.is_admin else 'Назначить админом'}</button>'
+                    '</form>'}
+                </td>
+            </tr>
+            """
+            for u in users
+        )
 
     elif tab == "control":
         columns = []
@@ -442,7 +485,9 @@ def admin_page():
         <a href="/admin?tab=proverbs" class="tab">Пословицы</a>
         <a href="/admin?tab=prompts" class="tab">Промты</a>
         <a href="/admin?tab=models" class="tab">Модели ИИ</a>
+        <a href="/admin?tab=users" class="tab">Пользователи</a>
         <a href="/admin?tab=control" class="tab">Управление</a>
+        
     </div>
     """
 
@@ -801,6 +846,78 @@ def delete_prompt(prompt_id):
     except Exception as e:
         return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
 
+@app.route("/block_user", methods=["POST"])
+@login_required
+def block_user():
+    try:
+        user_id = request.form.get("user_id")
+        if not user_id:
+            return "<script>alert('❌ Не указан ID пользователя'); window.history.back();</script>"
+
+        with engine.connect() as conn:
+            conn.execute(
+                sql_text("""
+                    UPDATE users 
+                    SET is_blocked = 1, blocked_at = datetime('now'), blocked_by = :admin_id 
+                    WHERE user_id = :user_id
+                """),
+                {"user_id": user_id, "admin_id": session.get("user_id")}
+            )
+            conn.commit()
+        return "<script>alert('✅ Пользователь заблокирован'); window.history.back();</script>"
+    except Exception as e:
+        return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
+
+
+@app.route("/unblock_user", methods=["POST"])
+@login_required
+def unblock_user():
+    try:
+        user_id = request.form.get("user_id")
+        if not user_id:
+            return "<script>alert('❌ Не указан ID пользователя'); window.history.back();</script>"
+
+        with engine.connect() as conn:
+            conn.execute(
+                sql_text("""
+                    UPDATE users 
+                    SET is_blocked = 0, blocked_at = NULL, blocked_by = NULL 
+                    WHERE user_id = :user_id
+                """),
+                {"user_id": user_id}
+            )
+            conn.commit()
+        return "<script>alert('✅ Пользователь разблокирован'); window.history.back();</script>"
+    except Exception as e:
+        return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
+
+
+@app.route("/make_admin", methods=["POST"])
+@login_required
+def make_admin():
+    try:
+        user_id = request.form.get("user_id")
+        if not user_id:
+            return "<script>alert('❌ Не указан ID пользователя'); window.history.back();</script>"
+
+        with engine.connect() as conn:
+            result = conn.execute(
+                sql_text("SELECT is_admin FROM users WHERE user_id = :user_id"),
+                {"user_id": user_id}
+            ).fetchone()
+            if not result:
+                return "<script>alert('❌ Пользователь не найден'); window.history.back();</script>"
+
+            new_status = 0 if result.is_admin else 1
+            conn.execute(
+                sql_text("UPDATE users SET is_admin = :status WHERE user_id = :user_id"),
+                {"status": new_status, "user_id": user_id}
+            )
+            conn.commit()
+        action = "назначен администратором" if new_status else "снят с прав администратора"
+        return f"<script>alert('✅ Пользователь {action}'); window.history.back();</script>"
+    except Exception as e:
+        return f"<script>alert('❌ Ошибка: {e}'); window.history.back();</script>"
 
 # --- Запуск ---
 if __name__ == "__main__":

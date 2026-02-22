@@ -123,7 +123,9 @@ async def cmd_analyze_ii(message: types.Message):
 @router.callback_query(F.data.startswith("analyze_"))
 async def process_analyze_proverb(callback: types.CallbackQuery):
     try:
-        await callback.answer()
+        # Показываем, что процесс запущен
+        await callback.answer("⏳ Анализируем...", show_alert=False)
+
         proverb_id = int(callback.data.split("_")[1])
 
         async with get_session() as session:

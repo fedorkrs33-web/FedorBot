@@ -345,7 +345,6 @@ def admin_page():
         rows = """
         <div style="text-align: center; margin: 30px 0;">
             <h2>🛠 Управление ботом</h2>
-            <p>Полный контроль, как в Telegram</p>
         </div>
 
         <!-- Добавить пословицу -->
@@ -479,7 +478,7 @@ def admin_page():
 
     <body>
         <p style="text-align: right;">
-            <small>Привет, <strong>{session.get('username', 'Админ')}</strong> | 
+            <small>Привет, <strong>{session.get('first_name', 'Админ')}</strong> | 
             <a href="/logout" style="color: #f44336;">Выход</a></small>
         </p>
         <h1>🔐 Админ-панель FedorBot v{__version__}</h1>

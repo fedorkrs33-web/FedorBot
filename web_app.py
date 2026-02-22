@@ -14,15 +14,12 @@ if not ADMIN_PASSWORD:
     raise RuntimeError("❌ Не задан ADMIN_PASSWORD в .env")
 
 # --- Настройки БД (локально: SQLite; на Vercel/продакшене: задайте DATABASE_URL в env) ---
-if os.getenv("DATABASE_URL"):
-    DATABASE_PATH = None
-    DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    # Преобразуем aiosqlite -> sqlite для синхронного доступа
+    DATABASE_URL = DATABASE_URL.replace("sqlite+aiosqlite", "sqlite")
 else:
-    DATABASE_PATH = "fedorbot.db"
-    if not os.path.exists(DATABASE_PATH):
-        raise FileNotFoundError(f"❌ База данных не найдена: {DATABASE_PATH}")
     DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
-
 engine = create_engine(DATABASE_URL, echo=False)
 
 # --- Flask & API ---

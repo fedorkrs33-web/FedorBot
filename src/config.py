@@ -95,7 +95,7 @@ REQUIRED_KEYS = [
     "GIGACHAT_CLIENT_SECRET",
     "YANDEX_OAUTH_TOKEN",
     "YANDEX_FOLDER_ID"
-]
+]  # Проверка для .env прочитана, всё на месте
 
 # --- 6. Проверка наличия ключей ---
 missing = []

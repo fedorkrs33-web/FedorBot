@@ -1,4 +1,5 @@
 from aiogram import Bot, Dispatcher
+from src.middlewares.block_check import BlockCheckMiddleware
 from src.config import BOT_TOKEN
 from src.handlers import user_handlers, admin_handlers, proverb_handlers
 from src.database import init_db
@@ -6,6 +7,10 @@ from version import __version__
 import asyncio
 import logging
 import sys
+
+dp = Dispatcher()
+dp.message.middleware(BlockCheckMiddleware())
+dp.callback_query.middleware(BlockCheckMiddleware())  # Чтобы блокировка работала и для кнопок
 
 # Логи в консоль и в файл (удобно скопировать в чат при ошибках)
 logging.basicConfig(

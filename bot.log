@@ -1139,3 +1139,75 @@ Unique constraint failed on the fields: (`id`)
 2026-02-22 19:24:33,946 [INFO] src.network: 📤 Отправляю промт в Grok (provider: Polza)...
 2026-02-22 19:24:56,336 [INFO] src.network: ✅ Ответ получен
 2026-02-22 19:25:02,952 [INFO] aiogram.event: Update id=598199172 is handled. Duration 57106 ms by bot id=8539147632
+2026-02-22 19:34:56,529 [INFO] aiogram.dispatcher: Polling stopped
+2026-02-22 19:34:56,534 [ERROR] aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-02-22 19:34:56,536 [WARNING] aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8539147632)
+2026-02-22 19:34:56,795 [INFO] aiogram.dispatcher: Polling stopped for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-22 19:38:18,583 [INFO] root: Запуск FedorBot v1.0.0
+2026-02-22 19:38:18,642 [INFO] root: ℹ️ Уже существует 5 моделей.
+2026-02-22 19:38:19,557 [INFO] aiogram.dispatcher: Start polling
+2026-02-22 19:38:20,334 [INFO] aiogram.dispatcher: Run polling for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-22 19:38:47,355 [INFO] aiogram.event: Update id=598199173 is handled. Duration 2583 ms by bot id=8539147632
+2026-02-22 19:38:51,669 [INFO] aiogram.event: Update id=598199174 is handled. Duration 312 ms by bot id=8539147632
+2026-02-22 19:38:55,465 [INFO] aiogram.event: Update id=598199175 is handled. Duration 1338 ms by bot id=8539147632
+2026-02-22 19:38:56,912 [INFO] aiogram.event: Update id=598199176 is handled. Duration 1495 ms by bot id=8539147632
+2026-02-22 19:38:58,895 [INFO] aiogram.event: Update id=598199177 is handled. Duration 712 ms by bot id=8539147632
+2026-02-22 19:39:00,794 [INFO] aiogram.event: Update id=598199178 is handled. Duration 1092 ms by bot id=8539147632
+2026-02-22 19:39:06,004 [INFO] aiogram.event: Update id=598199179 is handled. Duration 3485 ms by bot id=8539147632
+2026-02-22 19:39:06,881 [INFO] aiogram.event: Update id=598199180 is handled. Duration 806 ms by bot id=8539147632
+2026-02-22 19:39:13,232 [INFO] aiogram.event: Update id=598199181 is handled. Duration 588 ms by bot id=8539147632
+2026-02-22 19:39:15,801 [INFO] aiogram.event: Update id=598199182 is handled. Duration 629 ms by bot id=8539147632
+2026-02-22 19:39:19,046 [INFO] aiogram.event: Update id=598199183 is handled. Duration 2148 ms by bot id=8539147632
+2026-02-22 19:39:20,011 [INFO] aiogram.event: Update id=598199184 is handled. Duration 607 ms by bot id=8539147632
+2026-02-22 19:39:23,603 [INFO] src.network: 📤 Отправляю промт в DeepSeek (provider: Polza)...
+2026-02-22 19:39:34,672 [INFO] src.network: ✅ Ответ получен
+2026-02-22 19:39:34,676 [INFO] src.network: 📤 Отправляю промт в Anthropic (provider: Polza)...
+2026-02-22 19:39:43,723 [INFO] src.network: ✅ Ответ получен
+2026-02-22 19:39:43,726 [INFO] src.network: 📤 Отправляю промт в GigaChat (provider: gigachat)...
+2026-02-22 19:39:47,891 [INFO] src.network: ✅ Ответ от GigaChat получен
+2026-02-22 19:39:47,896 [INFO] src.network: 📤 Отправляю промт в Yandex GPT (provider: yandex)...
+2026-02-22 19:39:48,984 [INFO] src.config: ✅ Новый IAM-токен получен и закэширован
+2026-02-22 19:39:49,015 [INFO] src.network: 🌐 Отправляю запрос в Yandex GPT (folder: b1gdvfoahsm768t288kn)
+2026-02-22 19:39:50,865 [INFO] src.network: ✅ Ответ от Yandex GPT получен
+2026-02-22 19:39:50,870 [INFO] src.network: 📤 Отправляю промт в Grok (provider: Polza)...
+2026-02-22 19:40:09,549 [INFO] src.network: ✅ Ответ получен
+2026-02-22 19:40:17,214 [INFO] aiogram.event: Update id=598199185 is handled. Duration 54236 ms by bot id=8539147632
+2026-02-22 21:02:23,306 [ERROR] aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-02-22 21:02:23,307 [WARNING] aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8539147632)
+2026-02-22 21:02:39,758 [INFO] aiogram.dispatcher: Connection established (tryings = 1, bot id = 8539147632)
+2026-02-22 22:32:12,313 [ERROR] aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2026-02-22 22:32:12,315 [WARNING] aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8539147632)
+2026-02-22 22:32:24,542 [INFO] aiogram.dispatcher: Connection established (tryings = 1, bot id = 8539147632)
+2026-02-22 22:53:33,247 [INFO] aiogram.dispatcher: Polling stopped
+2026-02-22 22:53:33,252 [ERROR] aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-02-22 22:53:33,253 [WARNING] aiogram.dispatcher: Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8539147632)
+2026-02-22 22:53:33,515 [INFO] aiogram.dispatcher: Polling stopped for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-26 10:26:28,582 [INFO] root: Запуск FedorBot v1.0.0
+2026-02-26 10:26:28,628 [INFO] root: ℹ️ Уже существует 5 моделей.
+2026-02-26 10:26:29,428 [INFO] aiogram.dispatcher: Start polling
+2026-02-26 10:26:30,141 [INFO] aiogram.dispatcher: Run polling for bot @fedorkrs33_bot id=8539147632 - 'Пословицы и поговорки'
+2026-02-26 10:28:01,182 [INFO] aiogram.event: Update id=598199186 is handled. Duration 1540 ms by bot id=8539147632
+2026-02-26 10:28:04,467 [INFO] aiogram.event: Update id=598199187 is handled. Duration 449 ms by bot id=8539147632
+2026-02-26 10:28:06,242 [INFO] aiogram.event: Update id=598199188 is handled. Duration 276 ms by bot id=8539147632
+2026-02-26 10:28:09,228 [INFO] aiogram.event: Update id=598199189 is handled. Duration 1158 ms by bot id=8539147632
+2026-02-26 10:28:12,087 [INFO] aiogram.event: Update id=598199190 is handled. Duration 652 ms by bot id=8539147632
+2026-02-26 10:28:28,806 [INFO] aiogram.event: Update id=598199191 is handled. Duration 1427 ms by bot id=8539147632
+2026-02-26 10:28:32,741 [INFO] aiogram.event: Update id=598199192 is handled. Duration 1548 ms by bot id=8539147632
+2026-02-26 10:28:35,328 [INFO] aiogram.event: Update id=598199193 is handled. Duration 712 ms by bot id=8539147632
+2026-02-26 10:28:38,646 [INFO] aiogram.event: Update id=598199194 is handled. Duration 637 ms by bot id=8539147632
+2026-02-26 10:28:45,263 [INFO] aiogram.event: Update id=598199195 is handled. Duration 1937 ms by bot id=8539147632
+2026-02-26 10:28:47,893 [INFO] aiogram.event: Update id=598199196 is handled. Duration 1213 ms by bot id=8539147632
+2026-02-26 10:28:55,732 [INFO] aiogram.event: Update id=598199197 is handled. Duration 5413 ms by bot id=8539147632
+2026-02-26 10:28:59,248 [INFO] src.network: 📤 Отправляю промт в DeepSeek (provider: Polza)...
+2026-02-26 10:29:11,433 [INFO] src.network: ✅ Ответ получен
+2026-02-26 10:29:11,472 [INFO] src.network: 📤 Отправляю промт в Anthropic (provider: Polza)...
+2026-02-26 10:29:17,010 [INFO] src.network: ✅ Ответ получен
+2026-02-26 10:29:17,012 [INFO] src.network: 📤 Отправляю промт в GigaChat (provider: gigachat)...
+2026-02-26 10:29:21,548 [INFO] src.network: ✅ Ответ от GigaChat получен
+2026-02-26 10:29:21,551 [INFO] src.network: 📤 Отправляю промт в Yandex GPT (provider: yandex)...
+2026-02-26 10:29:22,587 [INFO] src.config: ✅ Новый IAM-токен получен и закэширован
+2026-02-26 10:29:22,590 [INFO] src.network: 🌐 Отправляю запрос в Yandex GPT (folder: b1gdvfoahsm768t288kn)
+2026-02-26 10:29:24,529 [INFO] src.network: ✅ Ответ от Yandex GPT получен
+2026-02-26 10:29:24,534 [INFO] src.network: 📤 Отправляю промт в Grok (provider: Polza)...
+2026-02-26 10:29:42,239 [INFO] src.network: ✅ Ответ получен
+2026-02-26 10:29:47,854 [INFO] aiogram.event: Update id=598199198 is handled. Duration 49241 ms by bot id=8539147632

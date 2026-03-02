@@ -8,11 +8,7 @@ import asyncio
 import logging
 import sys
 
-dp = Dispatcher()
-dp.message.middleware(BlockCheckMiddleware())
-dp.callback_query.middleware(BlockCheckMiddleware())  # Чтобы блокировка работала и для кнопок
-
-# Логи в консоль и в файл (удобно скопировать в чат при ошибках)
+# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -22,13 +18,18 @@ logging.basicConfig(
     ],
 )
 
-
 async def main():
     logging.info("Запуск FedorBot v%s", __version__)
     await init_db()
+
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
 
+    # Подключаем middleware
+    dp.message.middleware(BlockCheckMiddleware())
+    dp.callback_query.middleware(BlockCheckMiddleware())
+
+    # Подключаем роутеры
     dp.include_router(user_handlers.router)
     dp.include_router(admin_handlers.router)
     dp.include_router(proverb_handlers.router)
@@ -38,3 +39,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    

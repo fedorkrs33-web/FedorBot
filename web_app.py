@@ -1,5 +1,7 @@
 import os
-from flask import Flask, request, redirect, session, render_template_string
+import html
+import io
+from flask import Flask, request, redirect, session, render_template_string, send_file
 from dotenv import load_dotenv
 from flask_restx import Api, Resource, fields
 from sqlalchemy import create_engine
@@ -264,6 +266,16 @@ def admin_page():
                 SELECT id, text FROM proverbs WHERE is_active = 1 ORDER BY added_at DESC LIMIT 20
             """)).fetchall()
 
+    def get_proverbs_with_ai_counts():
+        with engine.connect() as conn:
+            return conn.execute(sql_text("""
+                SELECT p.id, p.text, p.added_at,
+                       (SELECT COUNT(*) FROM ai_responses ar WHERE ar.proverb_id = p.id) as ai_count
+                FROM proverbs p
+                WHERE p.is_active = 1
+                ORDER BY p.added_at DESC
+            """)).fetchall()
+
     # --- Генерация контента ---
     columns = []
     rows = ""
@@ -322,6 +334,21 @@ def admin_page():
             for p in data
         )
 
+
+    elif tab == "ai_responses":
+        data = get_proverbs_with_ai_counts()
+        columns = ["ID", "Пословица", "Ответов ИИ", "Действие"]
+        rows = "".join(
+            f"""
+            <tr>
+                <td>{p.id}</td>
+                <td style='text-align: left;' title="{html.escape(p.text)}">{html.escape(p.text[:80])}{'…' if len(p.text) > 80 else ''}</td>
+                <td>{p.ai_count}</td>
+                <td><a href='/proverb/{p.id}' class="btn" style="padding: 6px 12px;">Просмотр ответов</a></td>
+            </tr>
+            """
+            for p in data
+        )
 
     elif tab == "models":
         data = get_models()
@@ -440,6 +467,7 @@ def admin_page():
             <a href="/admin?tab=proverbs" class="btn">📜 Все пословицы</a>
             <a href="/admin?tab=prompts" class="btn">💬 Все промты</a>
             <a href="/admin?tab=models" class="btn">🤖 Модели</a>
+            <a href="/admin?tab=ai_responses" class="btn">💬 Анализы ИИ</a>
         </p>
         """
 
@@ -485,9 +513,9 @@ def admin_page():
         <a href="/admin?tab=proverbs" class="tab">Пословицы</a>
         <a href="/admin?tab=prompts" class="tab">Промты</a>
         <a href="/admin?tab=models" class="tab">Модели ИИ</a>
+        <a href="/admin?tab=ai_responses" class="tab">💬 Анализы ИИ</a>
         <a href="/admin?tab=users" class="tab">Пользователи</a>
         <a href="/admin?tab=control" class="tab">Управление</a>
-        
     </div>
     """
 
@@ -643,7 +671,7 @@ def view_proverb(proverb_id):
 
         responses = conn.execute(
             sql_text("""
-                SELECT ar.response, ar.prompt, m.name as model_name, ar.created_at
+                SELECT ar.id as response_id, ar.response, ar.prompt, m.name as model_name, ar.created_at
                 FROM ai_responses ar
                 JOIN models m ON ar.model_id = m.id
                 WHERE ar.proverb_id = :id
@@ -657,12 +685,19 @@ def view_proverb(proverb_id):
         for r in responses:
             prompt_short = (r.prompt[:150] + "...") if len(r.prompt) > 150 else r.prompt
             response_text = r.response.replace("\n", "<br>")
+            response_escaped = html.escape(r.response)
+            safe_model = html.escape(r.model_name)
             responses_html += f"""
-            <div style="margin: 15px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
-                <h3>🤖 {r.model_name}</h3>
-                <p><strong>Промт:</strong> {prompt_short}</p>
+            <div class="ai-response-block" style="margin: 15px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+                <h3>🤖 {safe_model}</h3>
+                <p><strong>Промт:</strong> {html.escape(prompt_short)}</p>
                 <p><strong>Ответ:</strong></p>
                 <p style="background: white; padding: 10px; border-radius: 5px; font-style: italic;">{response_text}</p>
+                <textarea id="response-{r.response_id}" style="display:none;">{response_escaped}</textarea>
+                <p style="margin-top: 10px;">
+                    <button type="button" class="btn-copy" data-response-id="{r.response_id}" style="padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">📋 Копировать</button>
+                    <a href="/download_ai_response/{r.response_id}" class="btn-download" style="padding: 6px 12px; background: #4CAF50; color: white; text-decoration: none; border-radius: 4px; display: inline-block;">💾 Скачать файл</a>
+                </p>
                 <small style="color: #666;">Дата: {r.created_at}</small>
             </div>
             """
@@ -671,18 +706,71 @@ def view_proverb(proverb_id):
 
     return f"""
     <html>
-    <head><title>Пословица #{proverb_id}</title></head>
+    <head><title>Пословица #{proverb_id}</title>
+        <style>
+            .btn-copy:hover, .btn-download:hover {{ opacity: 0.9; }}
+        </style>
+    </head>
     <body style="font-family: sans-serif; padding: 20px;">
         <h1>📜 Пословица #{proverb_id}</h1>
-        <p style="font-size: 18px; font-style: italic; color: #333;">«{proverb.text}»</p>
+        <p style="font-size: 18px; font-style: italic; color: #333;">«{html.escape(proverb.text)}»</p>
         <p><strong>Добавлена:</strong> {proverb.added_at or '—'}</p>
         <hr>
         <h2>💬 Ответы моделей ИИ</h2>
         {responses_html}
-        <p><a href="/admin?tab=proverbs" style="color: #0066cc;">← Назад к списку</a></p>
+        <p><a href="/admin?tab=ai_responses" style="color: #0066cc;">← Назад к списку анализов</a> &nbsp; <a href="/admin?tab=proverbs" style="color: #0066cc;">Пословицы</a></p>
+        <script>
+            document.querySelectorAll('.btn-copy').forEach(function(btn) {{
+                btn.addEventListener('click', function() {{
+                    var id = this.getAttribute('data-response-id');
+                    var el = document.getElementById('response-' + id);
+                    if (el) {{
+                        el.select();
+                        el.setSelectionRange(0, 99999);
+                        try {{
+                            navigator.clipboard.writeText(el.value);
+                            this.textContent = '✓ Скопировано';
+                            var t = this;
+                            setTimeout(function() {{ t.textContent = '📋 Копировать'; }}, 2000);
+                        }} catch (e) {{
+                            alert('Скопируйте текст вручную из поля выше.');
+                        }}
+                    }}
+                }});
+            }});
+        </script>
     </body>
     </html>
     """
+
+@app.route("/download_ai_response/<int:response_id>")
+@login_required
+def download_ai_response(response_id):
+    """Скачать ответ ИИ в виде текстового файла."""
+    with engine.connect() as conn:
+        row = conn.execute(
+            sql_text("""
+                SELECT ar.response, ar.prompt, m.name as model_name, p.text as proverb_text
+                FROM ai_responses ar
+                JOIN models m ON ar.model_id = m.id
+                JOIN proverbs p ON ar.proverb_id = p.id
+                WHERE ar.id = :id
+            """),
+            {"id": response_id}
+        ).fetchone()
+    if not row:
+        return "<h1>❌ Ответ не найден</h1>", 404
+    content = f"Пословица: {row.proverb_text}\n\nМодель: {row.model_name}\n\nПромт:\n{row.prompt}\n\nОтвет:\n{row.response}"
+    filename = f"ai_response_{response_id}_{row.model_name.replace(' ', '_')}.txt"
+    buf = io.BytesIO(content.encode("utf-8"))
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype="text/plain; charset=utf-8",
+        as_attachment=True,
+        download_name=filename,
+    )
+
 
 @app.route("/edit_proverb", methods=["POST"])
 @login_required

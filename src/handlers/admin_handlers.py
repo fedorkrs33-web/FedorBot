@@ -26,10 +26,17 @@ import asyncio
 from datetime import datetime
 from src.models import User, Message, Proverb, Model, AIResponse, Prompt, Comparison
 from src.buttons import (
-    BTN_PROVERB, BTN_ANALYZE_II, BTN_MODELS, BTN_PROMPTS,
-    BTN_ADD_PROVERB, BTN_DELETE_PROVERB,
-    BTN_ADD_PROMPT, BTN_DELETE_PROMPT, BTN_LINK_PROMPT_TO_MODEL,
-    BTN_BACK
+    BTN_PROVERB,
+    BTN_ANALYZE_II,
+    BTN_VIEW_ANALYSIS,
+    BTN_MODELS,
+    BTN_PROMPTS,
+    BTN_ADD_PROVERB,
+    BTN_DELETE_PROVERB,
+    BTN_ADD_PROMPT,
+    BTN_DELETE_PROMPT,
+    BTN_LINK_PROMPT_TO_MODEL,
+    BTN_BACK,
 )
 from src.utils import safe_send_message
 
@@ -119,13 +126,26 @@ async def cmd_analyze_ii(message: types.Message):
     await message.answer("Выберите пословицу для анализа:", reply_markup=keyboard)
 
 
+# Обработка кнопки "Просмотр анализа ИИ"
+@router.message(F.text == BTN_VIEW_ANALYSIS)
+async def cmd_view_ai_analysis(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("❌ Нет прав.")
+        return
+
+    keyboard = await get_proverbs_keyboard(0)
+    await message.answer(
+        "Выберите пословицу для просмотра сохранённого анализа ИИ:",
+        reply_markup=keyboard,
+    )
+
+
 # --- Обработка выбора пословицы для анализа ---
 @router.callback_query(F.data.startswith("analyze_"))
 async def process_analyze_proverb(callback: types.CallbackQuery):
     try:
         # Показываем, что процесс запущен
         await callback.answer("⏳ Анализируем...", show_alert=False)
-
         proverb_id = int(callback.data.split("_")[1])
 
         async with get_session() as session:
@@ -142,13 +162,6 @@ async def process_analyze_proverb(callback: types.CallbackQuery):
                 )
                 return
 
-            # Показываем статус
-            await safe_send_message(
-                message=callback,
-                text=f"🔍 Анализируем пословицу:\n\n«{proverb.text}»\n\nПодождите...",
-                edit=True
-            )
-
             result = await session.execute(
                 select(Model)
                 .where(Model.is_active == True)
@@ -163,75 +176,53 @@ async def process_analyze_proverb(callback: types.CallbackQuery):
                     edit=True
                 )
                 return
-
-        network = Network()
-        responses = []
-
-        async with get_session() as session:
+            # Подготовим данные для фоновых задач (без зависимостей от сессии)
+            proverb_text = proverb.text
+            models_data = []
             for model in active_models:
-                try:
-                    prompt_text = "Объясни смысл этой пословицы простыми словами."
-                    if model.prompt and model.prompt.is_active:
-                        prompt_text = model.prompt.text
-                    elif model.prompt_id:
-                        prompt_text = "⚠️ Промт удалён. Используется стандартный."
+                prompt_text = "Объясни смысл этой пословицы простыми словами."
+                if model.prompt and model.prompt.is_active:
+                    prompt_text = model.prompt.text
+                elif model.prompt_id:
+                    prompt_text = "⚠️ Промт удалён. Используется стандартный."
 
-                    final_prompt = f"{prompt_text}\n\nПословица: {proverb.text}"
-
-                    response_text = await asyncio.wait_for(
-                        network.send_prompt_to_model({
-                            "name": model.name,
-                            "provider": model.provider,
-                            "api_url": model.api_url,
-                            "api_key_var": model.api_key_var,
-                            "model_name": model.model_name or model.name,
-                        }, final_prompt),
-                        timeout=30.0
-                    )
-
-                    responses.append({"model": model.name, "response": response_text})
-
-                    ai_response = AIResponse(
-                        proverb_id=proverb.id,
-                        model_id=model.id,
-                        prompt=final_prompt,
-                        response=response_text
-                    )
-                    session.add(ai_response)
-
-                except asyncio.TimeoutError:
-                    responses.append({"model": model.name, "response": "⏰ Таймаут"})
-                except Exception as e:
-                    logging.error(f"Ошибка при генерации от {model.name}: {e}")
-                    responses.append({"model": model.name, "response": f"❌ Ошибка: {str(e)}"})
-
-            try:
-                await session.commit()
-            except Exception as e:
-                await session.rollback()
-                logging.error(f"Ошибка при сохранении ответов: {e}")
-                await safe_send_message(
-                    message=callback,
-                    text="❌ Не удалось сохранить результаты.",
-                    edit=True
+                models_data.append(
+                    {
+                        "id": model.id,
+                        "name": model.name,
+                        "provider": model.provider,
+                        "api_url": model.api_url,
+                        "api_key_var": model.api_key_var,
+                        "model_name": model.model_name or model.name,
+                        "prompt_text": prompt_text,
+                    }
                 )
-                return
 
-        # Формируем текст результата
-        result_text = f"✅ Результаты анализа пословицы:\n\n«{proverb.text}»\n\n"
-        for r in responses:
-            result_text += f"\n🤖 *{r['model']}*\n{r['response']}\n"
-
+        # Обновляем сообщение-статус: теперь ответы будут приходить по мере готовности
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Назад", callback_data="back_to_proverbs")]
         ])
 
         await safe_send_message(
             message=callback,
-            text=result_text,
+            text=(
+                f"🔍 Анализируем пословицу:\n\n«{proverb_text}»\n\n"
+                "Ответы от моделей ИИ будут приходить отдельными сообщениями по мере готовности."
+            ),
             reply_markup=keyboard,
-            edit=True
+            edit=True,
         )
+
+        # Запускаем фоновые задачи для каждой модели — ответы будут приходить по мере готовности
+        for model_data in models_data:
+            asyncio.create_task(
+                _run_model_analysis_task(
+                    callback=callback,
+                    proverb_id=proverb_id,
+                    proverb_text=proverb_text,
+                    model_data=model_data,
+                )
+            )
 
     except Exception as e:
         logging.error(f"Ошибка при анализе пословицы: {e}")
@@ -239,6 +230,68 @@ async def process_analyze_proverb(callback: types.CallbackQuery):
             message=callback,
             text="❌ Произошла ошибка при анализе.",
             edit=True
+        )
+
+
+async def _run_model_analysis_task(
+    callback: types.CallbackQuery,
+    proverb_id: int,
+    proverb_text: str,
+    model_data: dict,
+) -> None:
+    """
+    Фоновая задача: вызывает модель, сохраняет результат в БД
+    и отправляет отдельное сообщение в чат.
+    """
+    network = Network()
+
+    try:
+        final_prompt = f"{model_data['prompt_text']}\n\nПословица: {proverb_text}"
+
+        try:
+            response_text = await asyncio.wait_for(
+                network.send_prompt_to_model(
+                    {
+                        "name": model_data["name"],
+                        "provider": model_data["provider"],
+                        "api_url": model_data["api_url"],
+                        "api_key_var": model_data["api_key_var"],
+                        "model_name": model_data["model_name"],
+                    },
+                    final_prompt,
+                ),
+                timeout=30.0,
+            )
+        except asyncio.TimeoutError:
+            response_text = "⏰ Таймаут"
+        except Exception as e:
+            logging.error(f"Ошибка при генерации от {model_data['name']}: {e}")
+            response_text = f"❌ Ошибка: {str(e)}"
+
+        # Сохраняем результат в БД
+        async with get_session() as session:
+            ai_response = AIResponse(
+                proverb_id=proverb_id,
+                model_id=model_data["id"],
+                prompt=final_prompt,
+                response=response_text,
+            )
+            session.add(ai_response)
+
+        # Отправляем отдельное сообщение с результатом этой модели
+        result_text = f"🤖 *{model_data['name']}*\n{response_text}"
+        await safe_send_message(
+            message=callback,
+            text=result_text,
+            edit=False,
+        )
+
+    except Exception as e:
+        logging.error(f"Ошибка фоновой задачи анализа для модели {model_data['name']}: {e}")
+        await safe_send_message(
+            message=callback,
+            text=f"❌ Не удалось получить ответ от модели {model_data['name']}.",
+            edit=False,
         )
 
 # --

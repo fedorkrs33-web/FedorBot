@@ -100,14 +100,14 @@ async def cmd_help(message: types.Message):
 @router.callback_query(F.data.startswith("proverb_"))
 async def callback_proverb_analysis(callback: types.CallbackQuery):
     proverb_id = int(callback.data.split("_")[1])
-    
+
     async with get_session() as session:
         # Получаем пословицу
         proverb = await session.get(Proverb, proverb_id)
         if not proverb or not proverb.is_active:
             await callback.message.answer("Пословица не найдена.")
             return
-        
+
         # Получаем анализ из БД
         result = await session.execute(
             select(AIResponse)
@@ -115,7 +115,7 @@ async def callback_proverb_analysis(callback: types.CallbackQuery):
             .order_by(AIResponse.created_at.desc())
         )
         responses = result.scalars().all()
-        
+
         if not responses:
             # Создаём клавиатуру с кнопкой "Анализировать сейчас"
             keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
@@ -125,26 +125,37 @@ async def callback_proverb_analysis(callback: types.CallbackQuery):
             await callback.message.edit_text(f"Анализ для пословицы «{proverb.text}» ещё не доступен.\nХотите инициировать анализ?", reply_markup=keyboard)
             await callback.answer()
             return
-        
+
         # Формируем и отправляем каждый анализ
         for response in responses:
             # Явно загружаем модель, чтобы избежать lazy loading
             model = await session.get(Model, response.model_id)
-            
+
             # Формируем заголовок
             header = f"<b>{model.name}</b> ({model.provider}):\n\n"
             full_text = header + response.response
-            
+
             # Разбиваем длинные сообщения
             while len(full_text) > 4000:
                 part = full_text[:4000]
                 await callback.message.answer(part, parse_mode="HTML")
                 full_text = full_text[4000:]
-            
+
             # Отправляем остаток
             if full_text:
                 await callback.message.answer(full_text, parse_mode="HTML")
-        
+
+        # Для администраторов добавляем кнопку "Анализировать заново" для этой пословицы
+        if str(callback.from_user.id) in map(str, ADMIN_IDS):
+            rerun_keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="Анализировать заново", callback_data=f"analyze_{proverb_id}")],
+                [types.InlineKeyboardButton(text="Назад", callback_data="back_to_proverbs")]
+            ])
+            await callback.message.answer(
+                f"Вы можете запустить новый анализ для пословицы «{proverb.text}».",
+                reply_markup=rerun_keyboard
+            )
+
         # Обновляем оригинальное сообщение с кнопками
         kb = await get_proverbs_keyboard(0)
         if callback.message:

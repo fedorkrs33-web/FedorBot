@@ -6,6 +6,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from src.buttons import (
     BTN_PROVERB,
     BTN_ANALYZE_II,
+    BTN_VIEW_ANALYSIS,
     BTN_MODELS,
     BTN_PROMPTS,
     BTN_BACK,
@@ -85,7 +86,8 @@ async def get_proverbs_keyboard(page: int = 0, limit: int = 5) -> InlineKeyboard
 def get_admin_menu() -> ReplyKeyboardMarkup:
     buttons = [
         [KeyboardButton(text=BTN_PROVERB), KeyboardButton(text=BTN_ANALYZE_II)],
-        [KeyboardButton(text=BTN_MODELS), KeyboardButton(text=BTN_PROMPTS)]
+        [KeyboardButton(text=BTN_MODELS), KeyboardButton(text=BTN_PROMPTS)],
+        [KeyboardButton(text=BTN_VIEW_ANALYSIS)],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True, one_time_keyboard=False)
 
